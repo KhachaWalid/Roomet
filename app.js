@@ -44,9 +44,10 @@ app.use(session({
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes); 
 
-const blockRoutes = require("./routes/blockRoutes");
-app.use("/api/blocks", blockRoutes);
-
+const blockManagementRoutes = require("./routes/blockManagementRoutes");
+const assignmentRoutes = require("./routes/assignmentRoutes");
+app.use("/api/blocks", blockManagementRoutes);
+app.use("/api/assignments", assignmentRoutes);
 
 
 
