@@ -7,9 +7,10 @@ const UserSchema = new mongoose.Schema({
     email: { type: String, unique: true, sparse: true }, // 🔹 Only for directors
     password: { type: String, sparse: true }, // 🔹 Only for directors
     role: { type: String, enum: ["student", "admin", "director"], required: true },
-
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
+    
     // 🔹 Only for admins
-    adminType: { type: String, enum: ["registration", "maintenance"], sparse: true },
     adminCode: { type: String, unique: true, sparse: true },
     secretNumber: { type: String, sparse: true }, 
 
