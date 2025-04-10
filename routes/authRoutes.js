@@ -4,6 +4,17 @@ const BaccalaureateSerial = require("../models/BaccalaureateSerial");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
+const nodemailer = require('nodemailer');
+const crypto = require('crypto'); 
+
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS  
+    }
+});
 
 
 const router = express.Router();
@@ -12,13 +23,6 @@ const router = express.Router();
 router.post("/register-director", async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
-
-    
-        const existingDirector = await User.findOne({ role: "director" });
-        if (existingDirector) {
-            return res.status(400).json({ message: "A director is already registered" });
-        }
-
        
         const director = new User({
             firstName,
@@ -67,16 +71,74 @@ router.post("/director-login", async (req, res) => {
     }
 });
 
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    
+    const director = await User.findOne({ email, role: 'director' });
+    if (!director) {
+        return res.status(404).json({ message: "No director found with this email." });
+    }
+
+    
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    director.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+    director.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+    await director.save();
+
+    
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    
+    const mailOptions = {
+        to: director.email,
+        subject: 'Password Reset Request',
+        text: `Click this link to reset your password: ${resetUrl}`
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Reset email sent!" });
+});
+
+router.post('/reset-password/:token', async (req, res) => {
+    const { token } = req.params;
+    const { password } = req.body;
+
+   
+    const hashedToken = crypto
+        .createHash('sha256')
+        .update(token)
+        .digest('hex');
+
+    
+    const director = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpire: { $gt: Date.now() }, 
+        role: 'director'
+    });
+
+    if (!director) {
+        return res.status(400).json({ message: "Invalid or expired token." });
+    }
+
+    
+    director.password = password;
+    director.resetPasswordToken = undefined;
+    director.resetPasswordExpire = undefined;
+    await director.save();
+
+    res.status(200).json({ message: "Password updated successfully!" });
+});
+
 
 router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
     try {
-        const { adminType, adminCode, secretNumber } = req.body;
+        const { adminCode, secretNumber } = req.body;
 
-        if (!["registration", "maintenance"].includes(adminType)) {
-            return res.status(400).json({ message: "Invalid admin type" });
-        }
-
-       
+    
         const existingAdmin = await User.findOne({ adminCode });
         if (existingAdmin) {
             return res.status(400).json({ message: "Admin code already in use" });
@@ -85,7 +147,6 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
      
         const newAdmin = new User({
             role: "admin",
-            adminType,
             adminCode,
             secretNumber
         });
@@ -113,7 +174,6 @@ router.post("/admin-login", async (req, res) => {
         
         req.session.user = {
             id: admin._id,
-            adminType: admin.adminType,
             adminCode: admin.adminCode,
             role: "admin"
         };
