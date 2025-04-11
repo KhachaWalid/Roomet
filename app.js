@@ -49,6 +49,8 @@ const assignmentRoutes = require("./routes/assignmentRoutes");
 app.use("/api/blocks", blockManagementRoutes);
 app.use("/api/assignments", assignmentRoutes);
 
+const MaintenanceRoutes  = require("./routes/maintenanceRoutes");
+app.use("/api/maintenance", MaintenanceRoutes);
 
 
 
