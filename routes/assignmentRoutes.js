@@ -6,61 +6,55 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-// Assign student to room
 router.post("/", roleMiddleware("director"), async (req, res) => {
     try {
-        const { studentId, roomId } = req.body;
+        const { roomId, email, phone, serialNumber } = req.body;
 
-        // Find room and student
-        const room = await Room.findById(roomId);
-        const student = await User.findById(studentId);
-
-        if (!room || !student) {
-            return res.status(404).json({ 
-                message: "Room or student not found" 
-            });
+        // 1. Validate required fields
+        if (!roomId || !serialNumber) {
+            return res.status(400).json({ message: "Room ID and serial number are required" });
         }
 
-        // Check serial number validity
-        const serialValid = await BaccalaureateSerial.findOne({ 
-            serialNumber: student.serialNumber,
-            registrationFeesPaid: true
-        });
+        // 2. Find records
+        const [room, serialRecord] = await Promise.all([
+            Room.findById(roomId),
+            BaccalaureateSerial.findOne({ serialNumber })
+        ]);
 
-        if (!serialValid) {
-            return res.status(400).json({ 
-                message: "Invalid serial number or unpaid fees" 
-            });
+        if (!room) return res.status(404).json({ message: "Room not found" });
+        if (!serialRecord) return res.status(404).json({ message: "Invalid serial number" });
+        if (!serialRecord.registrationFeesPaid) {
+            return res.status(400).json({ message: "Registration fees not paid" });
         }
 
-        // Assign student
+        // 3. Create/update student
+        let student = await User.findOne({ serialNumber });
+        if (!student) {
+            student = new User({
+                firstName: serialRecord.firstName, // Fixed: Use from serialRecord
+                lastName: serialRecord.lastName,   // Fixed: Use from serialRecord
+                phone,
+                email,
+                serialNumber,
+                role: "student"
+            });
+            await student.save();
+        }
+
+        // 4. Assign to room
         await room.addStudent(student._id);
         
         res.json({ 
+            success: true,
             message: "Student assigned successfully",
-            room 
+            room: await Room.findById(roomId).populate('students')
         });
 
     } catch (error) {
+        console.error("[ASSIGNMENT ERROR]", error);
         res.status(500).json({ 
-            message: "Assignment failed", 
-            error: error.message 
-        });
-    }
-});
-
-// Get available rooms in a block
-router.get("/available/:blockId", roleMiddleware("admin"), async (req, res) => {
-    try {
-        const rooms = await Room.find({
-            block: req.params.blockId,
-            status: { $ne: "occupied" }
-        }).populate("block", "name");
-
-        res.json(rooms);
-    } catch (error) {
-        res.status(500).json({ 
-            message: "Error fetching rooms", 
+            success: false,
+            message: "Assignment failed",
             error: error.message 
         });
     }
