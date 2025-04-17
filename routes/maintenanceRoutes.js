@@ -71,7 +71,7 @@ router.patch("/:id/respond", roleMiddleware("admin"), async (req, res) => {
         // Notify student
         await new Notification({
             recipient: request.student,
-            message: `Your maintenance request was ${status}`,
+            message: `Your maintenance request was ${status}, response: ${response}`,
             relatedRequest: request._id
         }).save();
 
