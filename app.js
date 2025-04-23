@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const cors = require('cors');
 
 
 const app = express();
@@ -26,6 +27,10 @@ async function connectDB() {
 }
 connectDB();
 
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}))
 
 app.use(session({
   secret: "Random123",
