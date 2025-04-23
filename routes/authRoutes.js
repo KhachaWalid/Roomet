@@ -334,35 +334,6 @@ router.post("/logout", (req, res) => {
     });
 });
 
-// Check verification status
-router.get("/check-verification/:email", async (req, res) => {
-    try {
-        const { email } = req.params;
-        console.log("Checking verification status for:", email);
-
-        const director = await User.findOne({ email, role: "director" });
-        if (!director) {
-            return res.status(404).json({ 
-                message: "Director not found",
-                success: false
-            });
-        }
-
-        res.status(200).json({ 
-            isVerified: director.isVerified,
-            success: true
-        });
-
-    } catch (error) {
-        console.error("Verification check error:", error);
-        res.status(500).json({ 
-            message: "Error checking verification status", 
-            error: error.message,
-            success: false
-        });
-    }
-});
-
 // Resend verification email
 router.post("/resend-verification", async (req, res) => {
     try {
