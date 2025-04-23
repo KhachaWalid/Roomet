@@ -47,7 +47,7 @@ router.post("/register-director", async (req, res) => {
         await director.save();
 
         // Send verification email
-        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const verificationUrl = `http://localhost:3000/api/auth/verify-email/${verificationToken}`;
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
@@ -103,7 +103,13 @@ router.get("/verify-email/:token", async (req, res) => {
 
         res.status(200).json({ 
             message: "Email verified successfully!",
-            success: true
+            success: true,
+            director: {
+                id: director._id,
+                firstName: director.firstName,
+                lastName: director.lastName,
+                email: director.email
+            }
         });
 
     } catch (error) {
@@ -393,7 +399,7 @@ router.post("/resend-verification", async (req, res) => {
         await director.save();
 
         // Send verification email
-        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const verificationUrl = `http://localhost:3000/api/auth/verify-email/${verificationToken}`;
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
@@ -419,6 +425,14 @@ router.post("/resend-verification", async (req, res) => {
             error: error.message,
             success: false
         });
+    }
+});
+
+router.get("/is-logged-in", (req, res) => {
+    if (req.session && req.session.user) {
+        res.status(200).json({ loggedIn: true, user: req.session.user });
+    } else {
+        res.status(200).json({ loggedIn: false });
     }
 });
 
