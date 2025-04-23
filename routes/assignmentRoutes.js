@@ -60,4 +60,40 @@ router.post("/", roleMiddleware("director"), async (req, res) => {
     }
 });
 
+// Delete student
+router.delete("/student/:studentId", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { studentId } = req.params;
+
+        // Find and remove student from their room
+        const room = await Room.findOne({ students: studentId });
+        if (room) {
+            room.students = room.students.filter(id => id.toString() !== studentId);
+            // Update room status based on new occupancy
+            if (room.students.length === 0) {
+                room.status = "free";
+            } else if (room.students.length < room.capacity) {
+                room.status = "halfOccupied";
+            }
+            await room.save();
+        }
+
+        // Delete student's user record
+        await User.findByIdAndDelete(studentId);
+
+        res.json({ 
+            success: true,
+            message: "Student deleted successfully"
+        });
+
+    } catch (error) {
+        console.error("[DELETE STUDENT ERROR]", error);
+        res.status(500).json({ 
+            success: false,
+            message: "Failed to delete student",
+            error: error.message 
+        });
+    }
+});
+
 module.exports = router;

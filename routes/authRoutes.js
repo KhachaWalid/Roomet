@@ -24,38 +24,132 @@ router.post("/register-director", async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
        
+        // Check if email already exists
+        const existingDirector = await User.findOne({ email, role: "director" });
+        if (existingDirector) {
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(20).toString('hex');
+        const verificationExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
         const director = new User({
             firstName,
             lastName,
             email,
             password,
-            role: "director"
+            role: "director",
+            verificationToken,
+            verificationExpire
         });
 
         await director.save();
-        res.status(201).json({ message: "Director registered successfully" });
+
+        // Send verification email
+        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const mailOptions = {
+            to: director.email,
+            subject: 'Verify Your Email - E-Room Director Registration',
+            html: `
+                <h1>Welcome to E-Room!</h1>
+                <p>Please verify your email by clicking the link below:</p>
+                <a href="${verificationUrl}">Verify Email</a>
+                <p>This link will expire in 24 hours.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(201).json({ 
+            message: "Director registered successfully. Please check your email to verify your account.",
+            success: true
+        });
 
     } catch (error) {
-        res.status(500).json({ message: "Error registering director", error: error.message });
+        res.status(500).json({ 
+            message: "Error registering director", 
+            error: error.message,
+            success: false
+        });
+    }
+});
+
+router.get("/verify-email/:token", async (req, res) => {
+    try {
+        const { token } = req.params;
+        console.log("Verification attempt for token:", token);
+
+        const director = await User.findOne({
+            verificationToken: token,
+            verificationExpire: { $gt: Date.now() },
+            role: "director"
+        });
+
+        if (!director) {
+            console.log("No director found with token or token expired");
+            return res.status(400).json({ 
+                message: "Invalid or expired verification token",
+                success: false
+            });
+        }
+
+        console.log("Director found:", director.email);
+        director.isVerified = true;
+        director.verificationToken = undefined;
+        director.verificationExpire = undefined;
+        await director.save();
+        console.log("Director verified successfully");
+
+        res.status(200).json({ 
+            message: "Email verified successfully!",
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Verification error:", error);
+        res.status(500).json({ 
+            message: "Error verifying email", 
+            error: error.message,
+            success: false
+        });
     }
 });
 
 router.post("/director-login", async (req, res) => {
     try {
         const { email, password } = req.body;
+        console.log("Login attempt for email:", email);
 
-       
         const director = await User.findOne({ email, role: "director" });
         if (!director) {
-            return res.status(400).json({ message: "Invalid email or password" });
+            console.log("No director found with email:", email);
+            return res.status(400).json({ 
+                message: "Invalid email or password",
+                success: false
+            });
         }
 
-      
+        console.log("Director found, checking password and verification status");
         const isMatch = await bcrypt.compare(password, director.password);
         if (!isMatch) {
-            return res.status(400).json({ message: "Invalid email or password" });
+            console.log("Password mismatch");
+            return res.status(400).json({ 
+                message: "Invalid email or password",
+                success: false
+            });
         }
 
+        // Check if email is verified
+        if (!director.isVerified) {
+            console.log("Director not verified:", director.email);
+            return res.status(400).json({ 
+                message: "Please verify your email before logging in",
+                success: false
+            });
+        }
+
+        console.log("Login successful for:", director.email);
         req.session.user = {
             id: director._id,
             firstName: director.firstName,
@@ -64,10 +158,19 @@ router.post("/director-login", async (req, res) => {
             role: "director"
         };
 
-        res.status(200).json({ message: "Director login successful", director: req.session.user });
+        res.status(200).json({ 
+            message: "Director login successful", 
+            director: req.session.user,
+            success: true
+        });
 
     } catch (error) {
-        res.status(500).json({ message: "Error logging in", error: error.message });
+        console.error("Login error:", error);
+        res.status(500).json({ 
+            message: "Error logging in", 
+            error: error.message,
+            success: false
+        });
     }
 });
 
@@ -229,6 +332,94 @@ router.post("/logout", (req, res) => {
         res.clearCookie("connect.sid", { path: "/", httpOnly: true, sameSite: "strict" }); // ✅ More secure logout
         res.status(200).json({ message: "Logged out successfully" });
     });
+});
+
+// Check verification status
+router.get("/check-verification/:email", async (req, res) => {
+    try {
+        const { email } = req.params;
+        console.log("Checking verification status for:", email);
+
+        const director = await User.findOne({ email, role: "director" });
+        if (!director) {
+            return res.status(404).json({ 
+                message: "Director not found",
+                success: false
+            });
+        }
+
+        res.status(200).json({ 
+            isVerified: director.isVerified,
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Verification check error:", error);
+        res.status(500).json({ 
+            message: "Error checking verification status", 
+            error: error.message,
+            success: false
+        });
+    }
+});
+
+// Resend verification email
+router.post("/resend-verification", async (req, res) => {
+    try {
+        const { email } = req.body;
+        console.log("Resending verification for email:", email);
+
+        const director = await User.findOne({ email, role: "director" });
+        if (!director) {
+            return res.status(404).json({ 
+                message: "Director not found",
+                success: false
+            });
+        }
+
+        if (director.isVerified) {
+            return res.status(400).json({ 
+                message: "Email already verified",
+                success: false
+            });
+        }
+
+        // Generate new verification token
+        const verificationToken = crypto.randomBytes(20).toString('hex');
+        const verificationExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+        director.verificationToken = verificationToken;
+        director.verificationExpire = verificationExpire;
+        await director.save();
+
+        // Send verification email
+        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const mailOptions = {
+            to: director.email,
+            subject: 'Verify Your Email - E-Room Director Registration',
+            html: `
+                <h1>Welcome to E-Room!</h1>
+                <p>Please verify your email by clicking the link below:</p>
+                <a href="${verificationUrl}">Verify Email</a>
+                <p>This link will expire in 24 hours.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ 
+            message: "Verification email sent successfully",
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Resend verification error:", error);
+        res.status(500).json({ 
+            message: "Error sending verification email", 
+            error: error.message,
+            success: false
+        });
+    }
 });
 
 module.exports = router;

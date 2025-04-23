@@ -9,6 +9,9 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, enum: ["student", "admin", "director"], required: true },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    isVerified: { type: Boolean, default: false }, // New field for email verification
+    verificationToken: String, // New field for verification token
+    verificationExpire: Date, // New field for verification token expiry
     
     // 🔹 Only for admins
     adminCode: { type: String, unique: true, sparse: true },
