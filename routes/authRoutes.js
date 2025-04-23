@@ -370,11 +370,7 @@ router.post("/resend-verification", async (req, res) => {
         await director.save();
 
         // Send verification email
-<<<<<<< HEAD
-        const verificationUrl = `http://localhost:3000/verification/${verificationToken}`;
-=======
         const verificationUrl = `http://localhost:3000/api/auth/verify-email/${verificationToken}`;
->>>>>>> e34a1cdc32ec442576cad8ac332e6d73f423119b
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
