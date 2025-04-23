@@ -47,7 +47,7 @@ router.post("/register-director", async (req, res) => {
         await director.save();
 
         // Send verification email
-        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const verificationUrl = `http://localhost:3000/verification/${verificationToken}`;
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
@@ -393,7 +393,7 @@ router.post("/resend-verification", async (req, res) => {
         await director.save();
 
         // Send verification email
-        const verificationUrl = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
+        const verificationUrl = `http://localhost:3000/verification/${verificationToken}`;
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
