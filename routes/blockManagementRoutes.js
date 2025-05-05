@@ -5,17 +5,77 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-// Create new block with rooms
-router.post("/", roleMiddleware("director"), async (req, res) => {
+// Simplified logic for block names and uniform room capacity
+router.post("/initialize", roleMiddleware("director"), async (req, res) => {
     try {
-        const { name, floors, roomsPerFloor } = req.body;
+        const { numberofBlocks, floors, roomsPerFloor, RoomsCapacity } = req.body;
+
+        console.log("Request received with data:", req.body);
+
+        // Validate input data
+        if (!numberofBlocks || !floors || !roomsPerFloor || !RoomsCapacity) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
+        // Convert roomsPerFloor to an array if it's a single number
+        const roomsPerFloorArray = Array(floors).fill(roomsPerFloor);
+
+        // Generate block names from A to Z
+        const blockNames = Array.from({ length: numberofBlocks }, (_, i) => String.fromCharCode(65 + i));
+
+        console.log("Generated block names:", blockNames);
+
+        // Create blocks and rooms
+        const blockCreationPromises = [];
+        const roomCreationPromises = [];
+
+        for (let i = 0; i < numberofBlocks; i++) {
+            const blockName = blockNames[i];
+            const block = new Block({
+                name: blockName,
+                floors,
+                roomsPerFloor: roomsPerFloorArray
+            });
+            console.log(`Creating block: ${blockName}`);
+            await block.save();
+
+            // Create rooms for the block
+            for (let floor = 1; floor <= floors; floor++) {
+                for (let j = 1; j <= roomsPerFloorArray[floor - 1]; j++) {
+                    const roomNumber = `${blockName}${floor}${String(j).padStart(2, '0')}`;
+                    const room = new Room({
+                        number: roomNumber,
+                        block: block._id,
+                        floor,
+                        capacity: RoomsCapacity 
+                    });
+                    console.log(`Creating room: ${roomNumber} with capacity: ${RoomsCapacity}`);
+                    roomCreationPromises.push(room.save());
+                }
+            }
+        }
+
+        await Promise.all([...blockCreationPromises, ...roomCreationPromises]);
+
+        res.status(201).json({
+            message: "Blocks and rooms created successfully"
+        });
+    } catch (error) {
+        console.error("Error during block and room creation:", error);
+        res.status(500).json({
+            message: "Error creating blocks and rooms",
+            error: error.message
+        });
+    }
+});
+
+router.post("/create-block", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { name, floors , roomsPerFloor , } = req.body;
 
         // Validate roomsPerFloor array matches number of floors
-        if (roomsPerFloor.length !== floors) {
-            return res.status(400).json({ 
-                message: "Rooms per floor must be specified for each floor" 
-            });
-        }
+
+        
 
         // Create block
         const block = new Block({ name, floors, roomsPerFloor });
