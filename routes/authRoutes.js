@@ -400,6 +400,7 @@ router.post("/resend-verification", async (req, res) => {
 });
 
 router.get("/is-logged-in", (req, res) => {
+    console.log("Session info:", req.session);
     if (req.session && req.session.user) {
         res.status(200).json({ loggedIn: true, user: req.session.user });
     } else {
