@@ -20,7 +20,7 @@ const RoomSchema = new mongoose.Schema({
     }],
     capacity: { 
         type: Number, 
-        default: 2 
+        required: true 
     },
     status: {
         type: String,
