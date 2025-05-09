@@ -16,9 +16,21 @@ const BlockSchema = new mongoose.Schema({
     }],
     totalRooms: { 
         type: Number,
-        default: function() {
+        default: function () {
             return this.roomsPerFloor.reduce((sum, num) => sum + num, 0);
         }
+    },
+    reports: {
+        type: Number,
+        default: 0
+    },
+    students: {
+        type: Number,
+        default: 0
+    },
+    maxStudents: {
+        type: Number,
+        required: true // <-- because we calculate and pass it explicitly during creation
     }
 });
 

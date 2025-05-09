@@ -22,21 +22,28 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
 
         // Generate block names from A to Z
         const blockNames = Array.from({ length: numberofBlocks }, (_, i) => String.fromCharCode(65 + i));
-
         console.log("Generated block names:", blockNames);
 
-        // Create blocks and rooms
-        const blockCreationPromises = [];
         const roomCreationPromises = [];
 
         for (let i = 0; i < numberofBlocks; i++) {
             const blockName = blockNames[i];
+
+            // Calculate total number of rooms in this block
+            const totalRoomsInBlock = roomsPerFloorArray.reduce((sum, r) => sum + r, 0);
+            const maxStudents = totalRoomsInBlock * RoomsCapacity;
+
+            // Create the block with additional properties
             const block = new Block({
                 name: blockName,
                 floors,
-                roomsPerFloor: roomsPerFloorArray
+                roomsPerFloor: roomsPerFloorArray,
+                reports: 0,
+                students: 0,
+                maxStudents
             });
-            console.log(`Creating block: ${blockName}`);
+
+            console.log(`Creating block: ${blockName} with maxStudents: ${maxStudents}`);
             await block.save();
 
             // Create rooms for the block
@@ -55,7 +62,7 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
             }
         }
 
-        await Promise.all([...blockCreationPromises, ...roomCreationPromises]);
+        await Promise.all(roomCreationPromises);
 
         res.status(201).json({
             message: "Blocks and rooms created successfully"
@@ -68,6 +75,7 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
         });
     }
 });
+
 
 router.post("/create-block", roleMiddleware("director"), async (req, res) => {
     try {
@@ -109,7 +117,7 @@ router.post("/create-block", roleMiddleware("director"), async (req, res) => {
     }
 });
 
-// Get all blocks with room counts
+// Updated to calculate the total number of students in each block
 router.get("/", roleMiddleware("director"), async (req, res) => {
     try {
         const blocks = await Block.aggregate([
@@ -122,15 +130,37 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "maintenancerequests",
+                    localField: "_id",
+                    foreignField: "block",
+                    as: "reports"
+                }
+            },
+            {
                 $addFields: {
-                    occupiedRooms: {
-                        $size: {
-                            $filter: {
+                    numberOfReports: { $size: "$reports" },
+                    totalStudents: {
+                        $sum: {
+                            $map: {
                                 input: "$rooms",
                                 as: "room",
-                                cond: { $eq: ["$$room.status", "occupied"] }
+                                in: { $size: "$$room.students" }
                             }
                         }
+                    }
+                }
+            },
+            {
+                $project: {
+                    name: 1,
+                    floors: 1,
+                    numberOfReports: 1,
+                    totalStudents: 1,
+                    rooms: {
+                        number: 1,
+                        floor: 1,
+                        students: 1
                     }
                 }
             }
@@ -138,9 +168,9 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
 
         res.json(blocks);
     } catch (error) {
-        res.status(500).json({ 
-            message: "Error fetching blocks", 
-            error: error.message 
+        res.status(500).json({
+            message: "Error fetching blocks summary",
+            error: error.message
         });
     }
 });
