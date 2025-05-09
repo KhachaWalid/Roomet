@@ -155,6 +155,8 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
                 $project: {
                     name: 1,
                     floors: 1,
+                    totalRooms: 1,
+                    maxStudents: 1,
                     numberOfReports: 1,
                     totalStudents: 1,
                     rooms: {
