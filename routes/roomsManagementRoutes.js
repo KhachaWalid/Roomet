@@ -35,17 +35,20 @@ router.post("/create-room", roleMiddleware("director"), async (req, res) => {
     }
 });
 
-router.get("/rooms", roleMiddleware("director"), async (req, res) => {
+router.get("/", roleMiddleware("director"), async (req, res) => {
     try {
         const rooms = await Room.find()
-            .populate("block", "name")   
-            .populate("students", "name email")  
+            .populate("block", "name")   // Ensure block name is populated
+            .populate("students", "name email")  // Populate student details
             .exec();
 
         const formatted = rooms.map(room => ({
             id: room._id,
             number: room.number,
-            block: room.block?.name || "Unknown",
+            block: {
+                id: room.block?._id || null, // Include block ID
+                name: room.block?.name || "Unknown" // Include block name
+            },
             floor: room.floor,
             capacity: room.capacity,
             currentOccupancy: room.students.length,
