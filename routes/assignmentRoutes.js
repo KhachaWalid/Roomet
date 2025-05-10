@@ -280,13 +280,22 @@ router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (r
 
 router.get("/students", roleMiddleware("director"), async (req, res) => {
     try {
-        const students = await User.find({ role: "student" }).populate("room", "name");
+        const students = await User.find({ role: "student" })
+            .populate({
+                path: "room",
+                populate: {
+                    path: "block",
+                    select: "name"
+                },
+                select: "name block"
+            });
 
         res.json({
             success: true,
             students: students.map(student => ({
                 ...student.toObject(),
-                room: student.room?.name || "No room assigned"
+                room: student.room?.name || "No room assigned",
+                block: student.room?.block?.name || "No block assigned"
             }))
         });
     } catch (error) {
