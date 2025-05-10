@@ -12,7 +12,7 @@ const router = express.Router();
 // Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
 
-router.post("/", roleMiddleware("director"), async (req, res) => {
+router.post("/add-student", roleMiddleware("director"), async (req, res) => {
     try {
         const { roomId, email, phone, studentId, firstName, lastName } = req.body;
 
