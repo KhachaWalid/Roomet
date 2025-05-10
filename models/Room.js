@@ -24,12 +24,6 @@ const RoomSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  maxStudents: {
-    type: Number,
-    default: function () {
-      return this.capacity;
-    },
-  },
   reports: {
     type: Number,
     default: 0,

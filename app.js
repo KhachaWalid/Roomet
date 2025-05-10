@@ -5,7 +5,6 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const cors = require('cors');
 
-
 const app = express();
 app.use(express.json());
 
@@ -50,8 +49,10 @@ const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes); 
 
 const blockManagementRoutes = require("./routes/blockManagementRoutes");
+const roomsManagementRoutes = require("./routes/roomsManagementRoutes");
 const assignmentRoutes = require("./routes/assignmentRoutes");
 app.use("/api/blocks", blockManagementRoutes);
+app.use("/api/rooms", roomsManagementRoutes);
 app.use("/api/assignments", assignmentRoutes);
 
 const MaintenanceRoutes  = require("./routes/maintenanceRoutes");

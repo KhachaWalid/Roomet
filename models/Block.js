@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Room = require("./Room");
 
 const BlockSchema = new mongoose.Schema({
     name: { 
@@ -30,7 +31,7 @@ const BlockSchema = new mongoose.Schema({
     },
     maxStudents: {
         type: Number,
-        required: true // <-- because we calculate and pass it explicitly during creation
+        required: true 
     }
 });
 

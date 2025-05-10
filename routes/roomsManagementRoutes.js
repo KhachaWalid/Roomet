@@ -1,0 +1,61 @@
+const express = require("express");
+const Room = require("../models/Room");
+const Block = require("../models/Block");
+const roleMiddleware = require("../middleware/roleMiddleware");
+
+const router = express.Router();
+
+// room creation
+router.post("/create-room", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { number, blockId } = req.body; 
+
+        if (!number || !blockId) {
+            return res.status(400).json({ message: "Number and Block are required" });
+        }
+
+        const block = await Block.findById(blockId);
+        if (!block) {
+            return res.status(404).json({ message: "Block not found" });
+        }
+
+        const room = new Room({
+            number, 
+            block: blockId, 
+            reports: 0, 
+            students: [], 
+            status: "free" 
+        });
+
+        await room.save();
+
+        res.status(201).json({ message: "Room created successfully", room });
+    } catch (error) {
+        res.status(500).json({ message: "Error creating room", error: error.message });
+    }
+});
+
+router.get("/rooms", roleMiddleware("director"), async (req, res) => {
+    try {
+        const rooms = await Room.find()
+            .populate("block", "name")   
+            .populate("students", "name email")  
+            .exec();
+
+        const formatted = rooms.map(room => ({
+            id: room._id,
+            number: room.number,
+            block: room.block?.name || "Unknown",
+            floor: room.floor,
+            capacity: room.capacity,
+            currentOccupancy: room.students.length,
+            status: room.status
+        }));
+
+        res.json(formatted);  // Send back the formatted room data
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching rooms", error: error.message });
+    }
+});
+
+module.exports = router;
