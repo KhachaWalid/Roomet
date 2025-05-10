@@ -19,7 +19,9 @@ const UserSchema = new mongoose.Schema({
 
     // 🔹 Only for students
     serialNumber: { type: String, unique: true, sparse: true },
-    phone: { type: String, sparse: true }
+    phone: { type: String, sparse: true },
+
+    room: { type: mongoose.Schema.Types.ObjectId, ref: "Room", sparse: true }
 });
 
 // 🔒 Hash director's password before saving
