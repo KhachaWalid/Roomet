@@ -29,7 +29,7 @@ const BlockSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    maxStudents: {
+    roomsCapacity: {
         type: Number,
         required: true 
     }

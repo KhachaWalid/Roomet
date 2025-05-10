@@ -8,12 +8,12 @@ const router = express.Router();
 // Simplified logic for block names and uniform room capacity
 router.post("/initialize", roleMiddleware("director"), async (req, res) => {
     try {
-        const { numberofBlocks, floors, roomsPerFloor, RoomsCapacity } = req.body;
+        const { numberofBlocks, floors, roomsPerFloor, roomsCapacity } = req.body;
 
         console.log("Request received with data:", req.body);
 
         // Validate input data
-        if (!numberofBlocks || !floors || !roomsPerFloor || !RoomsCapacity) {
+        if (!numberofBlocks || !floors || !roomsPerFloor || !roomsCapacity) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
@@ -34,7 +34,8 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
             const block = new Block({
                 name: blockName,
                 floors,
-                roomsPerFloor: roomsPerFloorArray
+                roomsPerFloor: roomsPerFloorArray,
+                roomsCapacity: roomsCapacity
             });
             console.log(`Creating block: ${blockName}`);
             await block.save();
@@ -47,9 +48,9 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
                         number: roomNumber,
                         block: block._id,
                         floor,
-                        capacity: RoomsCapacity 
+                        capacity: roomsCapacity 
                     });
-                    console.log(`Creating room: ${roomNumber} with capacity: ${RoomsCapacity}`);
+                    console.log(`Creating room: ${roomNumber} with capacity: ${roomsCapacity}`);
                     roomCreationPromises.push(room.save());
                 }
             }
