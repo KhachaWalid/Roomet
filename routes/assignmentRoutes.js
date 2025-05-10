@@ -87,17 +87,19 @@ Thank you.`
         await student.save();
 
         // Populate room name for the response
-        await student.populate("room", "name");
+        await student.populate("room", "name block");
 
-        // If the student is not assigned to a room, set room name to "No room yet"
-        const roomName = student.room ? student.room.name : "No room yet";
+        // If the student is not assigned to a room, set room and block to null
+        const roomName = student.room ? student.room.name : null;
+        const blockName = student.room?.block ? student.room.block.name : null;
 
         res.json({ 
             success: true,
             message: `Student ${roomId ? "assigned to room and" : "added without room assignment and"} email sent`,
             student: {
                 ...student.toObject(),
-                room: roomName
+                room: roomName,
+                block: blockName
             }
         });
 
@@ -210,7 +212,8 @@ router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (r
                     result.message = "Student added/updated without room assignment";
                     result.student = {
                         ...student.toObject(),
-                        room: student.room?.name || "No room assigned"
+                        room: student.room?.name || null,
+                        block: student.room?.block?.name || null
                     };
                     results.push(result);
                     continue;
@@ -245,13 +248,14 @@ router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (r
                 }
 
                 await student.save();
-                await student.populate("room", "name");
+                await student.populate("room", "name block");
 
                 result.success = true;
                 result.message = "Student added/updated successfully";
                 result.student = {
                     ...student.toObject(),
-                    room: student.room?.name || "No room assigned"
+                    room: student.room?.name || null,
+                    block: student.room?.block?.name || null
                 };
                 results.push(result);
             } catch (error) {
@@ -295,8 +299,8 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
             const reportCount = await MaintenanceRequest.countDocuments({ student: student._id });
             return {
                 ...student.toObject(),
-                room: student.room?.name || "No room assigned",
-                block: student.room?.block?.name || "No block assigned",
+                room: student.room?.name || null,
+                block: student.room?.block?.name || null,
                 reports: reportCount
             };
         }));
