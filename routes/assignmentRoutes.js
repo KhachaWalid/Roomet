@@ -16,103 +16,45 @@ const upload = multer({ dest: "uploads/" });
 
 router.post("/add-student", roleMiddleware("director"), async (req, res) => {
     try {
-        const { roomId, email, phone, studentId, firstName, lastName } = req.body;
+        // ... [previous code until room assignment] ...
 
-        // 1. Validate required fields
-        if (!email || !phone || !studentId || !firstName || !lastName) {
-            return res.status(400).json({ message: "All fields except roomId are required" });
-        }
-
-        // 2. Create or update the student
-        let student = await User.findOne({ studentId }).populate("room", "name"); // Populate room name
-        if (!student) {
-            student = new User({
-                firstName,
-                lastName,
-                phone,
-                email,
-                studentId,
-                role: "student"
-            });
-        }
-
-        // 3. Check if roomId is provided
         if (roomId) {
             const room = await Room.findById(roomId);
             if (!room) return res.status(404).json({ message: "Room not found" });
 
-            // Assign the student to the room
-            room.students.push(student._id);
-            if (room.students.length === room.capacity) {
-                room.status = "full";
-            } else {
-                room.status = "halfOccupied";
+            // Add student to room if not exists
+            if (!room.students.includes(student._id)) {
+                room.students.push(student._id);
+                room.status = room.students.length >= room.capacity ? "full" : "halfOccupied";
+                await room.save();
             }
-            await room.save();
 
-            // Add room reference to the student
+            // Critical fix: Update and save student
             student.room = room._id;
+            await student.save();  // ← MUST SAVE AFTER UPDATING
         }
 
-        // 4. Send email to the student
-        const transporter = nodemailer.createTransport({
-            service: "gmail", 
-            auth: {
-                user: process.env.EMAIL_USER, 
-                pass: process.env.EMAIL_PASS 
-            }
+        // ... [rest of your code] ...
+
+        // Repopulate before response
+        await student.populate({
+            path: "room",
+            populate: { path: "block", select: "name" }
         });
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: "Create Your Account Password",
-            text: `Hello ${firstName},
-
-You have been successfully added to the system. ${roomId ? "You have been assigned to a room." : "You are currently unassigned to a room."} Please use the following link to create your password and log in:
-
-[Create Password Link]
-
-Thank you.`
-        };
-
-        try {
-            await transporter.sendMail(mailOptions);
-        } catch (emailError) {
-            console.error("[EMAIL ERROR]", emailError);
-            throw new Error("Failed to send email. Student not saved.");
-        }
-
-        // Save the student only if email is sent successfully
-        await student.save();
-
-        // Populate room name for the response
-        await student.populate("room", "name block");
-
-        // If the student is not assigned to a room, set room and block to null
-        const roomName = student.room ? student.room.name : null;
-        const blockName = student.room?.block ? student.room.block.name : null;
-
-        res.json({ 
+        res.json({
             success: true,
-            message: `Student ${roomId ? "assigned to room and" : "added without room assignment and"} email sent`,
             student: {
                 ...student.toObject(),
-                room: roomName,
-                block: blockName
+                room: student.room?.name || null,
+                block: student.room?.block?.name || null
             }
         });
 
     } catch (error) {
-        console.error("[ASSIGNMENT ERROR]", error);
-        res.status(500).json({ 
-            success: false,
-            message: "Assignment failed",
-            error: error.message 
-        });
+        // ... [error handling] ...
     }
 });
-
 router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (req, res) => {
     try {
         if (!req.file) {
@@ -314,6 +256,54 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to fetch students",
+            error: error.message
+        });
+    }
+});
+
+// Get a single student's detailed information
+router.get("/student/:studentId", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { studentId } = req.params;
+
+        // Find the student by ID and populate related fields
+        const student = await User.findById(studentId)
+            .populate({
+                path: "room",
+                populate: {
+                    path: "block",
+                    select: "name"
+                },
+                select: "name block"
+            });
+
+        if (!student) {
+            return res.status(404).json({
+                success: false,
+                message: "Student not found"
+            });
+        }
+
+        // Fetch maintenance reports related to the student
+        const reports = await MaintenanceRequest.find({ student: student._id });
+
+        res.json({
+            success: true,
+            student: {
+                ...student.toObject(),
+                room: student.room?.name || null,
+                block: student.room?.block?.name || null,
+                reports: {
+                    count: reports.length,
+                    details: reports
+                }
+            }
+        });
+    } catch (error) {
+        console.error("[GET STUDENT ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch student details",
             error: error.message
         });
     }
