@@ -7,6 +7,7 @@ const multer = require("multer"); // Add multer for file uploads
 const csvParser = require("csv-parser"); // Add csv-parser for processing CSV files
 const fs = require("fs");
 const xlsx = require("xlsx"); // Add xlsx for Excel file processing
+const MaintenanceRequest = require("../models/MaintenanceRequest");
 
 const router = express.Router();
 
@@ -290,13 +291,19 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
                 select: "name block"
             });
 
-        res.json({
-            success: true,
-            students: students.map(student => ({
+        const studentsWithReports = await Promise.all(students.map(async (student) => {
+            const reportCount = await MaintenanceRequest.countDocuments({ student: student._id });
+            return {
                 ...student.toObject(),
                 room: student.room?.name || "No room assigned",
-                block: student.room?.block?.name || "No block assigned"
-            }))
+                block: student.room?.block?.name || "No block assigned",
+                reports: reportCount
+            };
+        }));
+
+        res.json({
+            success: true,
+            students: studentsWithReports
         });
     } catch (error) {
         console.error("[GET STUDENTS ERROR]", error);
