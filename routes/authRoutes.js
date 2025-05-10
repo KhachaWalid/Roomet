@@ -308,15 +308,15 @@ router.post("/login", async (req, res) => {
         }
 
         // Check if the password matches
-        // const isMatch = await bcrypt.compare(password, student.password);
-        // if (!isMatch) {
-        //     return res.status(400).json({ message: "Invalid email or password" });
-        // }
+        const isMatch = await bcrypt.compare(password, student.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid email or password" });
+        }
 
-        // // Check if the student is verified (optional, if applicable)
-        // if (!student.isVerified) {
-        //     return res.status(400).json({ message: "Please verify your email before logging in" });
-        // }
+        // Check if the student is verified (optional, if applicable)
+        if (!student.isVerified) {
+            return res.status(400).json({ message: "Please verify your email before logging in" });
+        }
 
         // Set session data
         req.session.user = {
