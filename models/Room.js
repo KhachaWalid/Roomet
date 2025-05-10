@@ -29,6 +29,22 @@ const RoomSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  beds: {
+    type: Number,
+    default: 0,
+  },
+  tables: {
+    type: Number,
+    default: 0,
+  },
+  pillows: {
+    type: Number,
+    default: 0,
+  },
+  chairs: {
+    type: Number,
+    default: 0,
+  },
   status: {
     type: String,
     enum: ["occupied", "halfOccupied", "free"],

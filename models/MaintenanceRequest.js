@@ -11,26 +11,60 @@ const MaintenanceRequestSchema = new mongoose.Schema({
         ref: "Room",
         required: true 
     },
-    problemType: {
+    issues: {
+        type: [String],
+        required: true,
+        validate: {
+            validator: function(issues) {
+                // Regex allows letters, numbers, spaces, and common punctuation
+                const regex = /^[a-zA-Z0-9\s\-\/,.'()]+$/;
+                return issues.every(issue => 
+                    issue.trim().length > 0 &&  // Not empty
+                    regex.test(issue)          // Matches allowed characters
+                );
+            },
+            message: "Issues can only contain letters, numbers, spaces, hyphens (-), commas (,), slashes (/), apostrophes ('), or parentheses ()"
+        }
+    },
+    urgency: {
         type: String,
-        enum: ["electrical", "plumbing", "furniture", "cleaning", "other"],
-        required: true
+        enum: ["Low", "Medium", "High"], // Keep enum for urgency
+        default: "Medium"
+    },
+    additionalDescription: String,
+    availableTime: {
+        day: {
+            type: String,
+            required: false // Made optional
+        },
+        timeSlot: {
+            type: String,
+            required: false // Made optional
+        }
     },
     description: {
         type: String,
-        required: true
+        required: false // Made optional
     },
-    availableTime: {
-        day: { type: Date, required: true },
-        timeSlot: { type: String, required: true } // "13:30-14:30"
+    problemType: {
+        type: String,
+        required: false // Made optional
     },
     status: {
         type: String,
-        enum: ["pending", "approved", "rejected", "completed"],
-        default: "pending"
+        enum: ["Pending", "In Progress", "Completed", "Rejected"],
+        default: "Pending"
     },
     adminResponse: String,
-    createdAt: { type: Date, default: Date.now }
+    admin: {
+        type: mongoose.Schema.Types.ObjectId, // Added reference to admin who responded
+        ref: "User",
+        required: false
+    },
+    createdAt: { 
+        type: Date, 
+        default: Date.now 
+    }
 });
 
 module.exports = mongoose.model("MaintenanceRequest", MaintenanceRequestSchema);

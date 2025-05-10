@@ -223,4 +223,35 @@ router.get("/ ", roleMiddleware("director"), async (req, res) => {
     }
 });
 
+// Initialize rooms with items based on their capacity
+router.post("/initialize-rooms", roleMiddleware("director"), async (req, res) => {
+    try {
+        // Fetch all rooms
+        const rooms = await Room.find();
+
+        // Iterate through each room and initialize items
+        for (const room of rooms) {
+            room.beds = room.capacity;
+            room.tables = room.capacity;
+            room.pillows = room.capacity;
+            room.chairs = room.capacity;
+
+            // Save the updated room
+            await room.save();
+        }
+
+        res.json({
+            success: true,
+            message: "Rooms initialized successfully",
+        });
+    } catch (error) {
+        console.error("[INITIALIZE ROOMS ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to initialize rooms",
+            error: error.message,
+        });
+    }
+});
+
 module.exports = router;

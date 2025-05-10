@@ -16,45 +16,69 @@ const upload = multer({ dest: "uploads/" });
 
 router.post("/add-student", roleMiddleware("director"), async (req, res) => {
     try {
-        // ... [previous code until room assignment] ...
+        const { roomId, email, phone, studentId, firstName, lastName } = req.body;
 
+        // Validate required fields
+        if (!email || !phone || !studentId || !firstName || !lastName) {
+            return res.status(400).json({ success: false, message: "All fields except roomId are required" });
+        }
+
+        // Check if the student already exists
+        let student = await User.findOne({ studentId });
+        if (!student) {
+            student = new User({
+                firstName,
+                lastName,
+                phone,
+                email,
+                studentId,
+                role: "student"
+            });
+        }
+
+        // Handle room assignment if roomId is provided
         if (roomId) {
             const room = await Room.findById(roomId);
-            if (!room) return res.status(404).json({ message: "Room not found" });
+            if (!room) {
+                return res.status(404).json({ success: false, message: "Room not found" });
+            }
 
-            // Add student to room if not exists
+            // Add student to the room if not already present
             if (!room.students.includes(student._id)) {
                 room.students.push(student._id);
-                room.status = room.students.length >= room.capacity ? "full" : "halfOccupied";
+                room.status = room.students.length >= room.capacity ? "occupied" : "halfOccupied";
                 await room.save();
             }
 
-            // Critical fix: Update and save student
+            // Assign the room to the student
             student.room = room._id;
-            await student.save();  // ← MUST SAVE AFTER UPDATING
         }
 
-        // ... [rest of your code] ...
+        // Save the student
+        await student.save();
 
-        // Repopulate before response
+        // Populate room and block details for the response
         await student.populate({
             path: "room",
             populate: { path: "block", select: "name" }
         });
 
+        // Respond with the student details
         res.json({
             success: true,
+            message: "Student added successfully",
             student: {
                 ...student.toObject(),
                 room: student.room?.name || null,
                 block: student.room?.block?.name || null
             }
         });
-
     } catch (error) {
-        // ... [error handling] ...
+        console.error("[ADD STUDENT ERROR]", error);
+        res.status(500).json({ success: false, message: "Failed to add student", error: error.message });
     }
 });
+
 router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (req, res) => {
     try {
         if (!req.file) {
@@ -272,9 +296,9 @@ router.get("/student/:studentId", roleMiddleware("director"), async (req, res) =
                 path: "room",
                 populate: {
                     path: "block",
-                    select: "name"
+                    select: "-__v" // Exclude the __v field from the block
                 },
-                select: "name block"
+                select: "-__v" // Exclude the __v field from the room
             });
 
         if (!student) {
@@ -291,8 +315,8 @@ router.get("/student/:studentId", roleMiddleware("director"), async (req, res) =
             success: true,
             student: {
                 ...student.toObject(),
-                room: student.room?.name || null,
-                block: student.room?.block?.name || null,
+                room: student.room || null, // Include all room details
+                block: student.room?.block || null, // Include all block details
                 reports: {
                     count: reports.length,
                     details: reports
@@ -344,5 +368,6 @@ router.delete("/student/:studentId", roleMiddleware("director"), async (req, res
         });
     }
 });
+
 
 module.exports = router;

@@ -299,32 +299,35 @@ router.post("/admin-login", async (req, res) => {
 
 router.post("/login", async (req, res) => {
     try {
-        const { serialNumber, secretNumber } = req.body;
+        const { email, password } = req.body;
 
-      
-        const user = await User.findOne({ serialNumber });
-
-        if (!user) {
-            return res.status(400).json({ message: "Invalid serial number or secret number" });
+        // Find the student by email
+        const student = await User.findOne({ email, role: "student" });
+        if (!student) {
+            return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        
-        const serialRecord = await BaccalaureateSerial.findOne({ serialNumber });
+        // Check if the password matches
+        // const isMatch = await bcrypt.compare(password, student.password);
+        // if (!isMatch) {
+        //     return res.status(400).json({ message: "Invalid email or password" });
+        // }
 
-        if (!serialRecord || serialRecord.secretNumber !== secretNumber) {
-            return res.status(400).json({ message: "Invalid serial number or secret number" });
-        }
+        // // Check if the student is verified (optional, if applicable)
+        // if (!student.isVerified) {
+        //     return res.status(400).json({ message: "Please verify your email before logging in" });
+        // }
 
+        // Set session data
         req.session.user = {
-            id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            serialNumber: user.serialNumber,
-            role: user.role
+            id: student._id,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            email: student.email,
+            role: "student"
         };
 
         res.status(200).json({ message: "Login successful", user: req.session.user });
-
     } catch (error) {
         res.status(500).json({ message: "Error logging in", error: error.message });
     }
