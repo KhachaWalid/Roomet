@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer"); // Add nodemailer for email functional
 const multer = require("multer"); // Add multer for file uploads
 const csvParser = require("csv-parser"); // Add csv-parser for processing CSV files
 const fs = require("fs");
+const xlsx = require("xlsx"); // Add xlsx for Excel file processing
 
 const router = express.Router();
 
@@ -109,146 +110,185 @@ Thank you.`
     }
 });
 
-// Bulk upload students
 router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (req, res) => {
     try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+        }
+
         const filePath = req.file.path;
         const students = [];
 
-        // Parse the uploaded CSV file
-        fs.createReadStream(filePath)
-            .pipe(csvParser())
-            .on("data", (row) => {
-                students.push(row);
-            })
-            .on("end", async () => {
-                const results = [];
+        const validateStudent = (student) => {
+            const requiredFields = ['email', 'phone', 'studentId', 'firstName', 'lastName'];
+            const missingFields = requiredFields.filter(field => !student[field]);
 
-                for (const studentData of students) {
-                    const { roomId, email, phone, studentId, firstName, lastName } = studentData;
+            if (missingFields.length > 0) {
+                return {
+                    isValid: false,
+                    message: `Missing required fields: ${missingFields.join(', ')}`
+                };
+            }
 
-                    // Validate required fields
-                    if (!email || !phone || !studentId || !firstName || !lastName) {
-                        results.push({ studentId, success: false, message: "Missing required fields" });
-                        continue;
-                    }
+            if (!/^\S+@\S+\.\S+$/.test(student.email)) {
+                return { isValid: false, message: "Invalid email format" };
+            }
 
-                    // Check if roomId is provided
-                    if (!roomId) {
-                        // Create or update the student without assigning to a room
-                        let student = await User.findOne({ studentId });
-                        if (!student) {
-                            student = new User({
-                                firstName,
-                                lastName,
-                                phone,
-                                email,
-                                studentId,
-                                role: "student"
-                            });
-                            await student.save();
-                        }
+            return { isValid: true };
+        };
 
-                        // Add to results as unassigned
-                        results.push({ studentId, success: true, message: "Student added without room assignment" });
-                        continue;
-                    }
-
-                    try {
-                        // Find the room
-                        const room = await Room.findById(roomId);
-                        if (!room) {
-                            results.push({ studentId, success: false, message: "Room not found" });
-                            continue;
-                        }
-
-                        // Create or update the student
-                        let student = await User.findOne({ studentId });
-                        if (!student) {
-                            student = new User({
-                                firstName,
-                                lastName,
-                                phone,
-                                email,
-                                studentId,
-                                role: "student"
-                            });
-                        }
-
-                        // Assign the student to the room
-                        room.students.push(student._id);
-                        if (room.students.length === room.capacity) {
-                            room.status = "full";
-                        } else {
-                            room.status = "halfOccupied";
-                        }
-                        await room.save();
-
-                        // Add room reference to the student
-                        student.room = room._id;
-
-                        // Send email to the student
-                        const transporter = nodemailer.createTransport({
-                            service: "gmail",
-                            auth: {
-                                user: process.env.EMAIL_USER,
-                                pass: process.env.EMAIL_PASS
-                            }
+        // CSV
+        if (req.file.mimetype === "text/csv" || req.file.originalname.endsWith(".csv")) {
+            await new Promise((resolve, reject) => {
+                fs.createReadStream(filePath)
+                    .pipe(csvParser())
+                    .on("data", (row) => {
+                        const trimmedRow = {};
+                        Object.keys(row).forEach(key => {
+                            trimmedRow[key.trim()] = typeof row[key] === 'string' ? row[key].trim() : row[key];
                         });
+                        students.push(trimmedRow);
+                    })
+                    .on("end", resolve)
+                    .on("error", reject);
+            });
+        }
+        // Excel
+        else if (
+            req.file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
+            req.file.originalname.match(/\.xlsx?$/i)
+        ) {
+            const workbook = xlsx.readFile(filePath);
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = xlsx.utils.sheet_to_json(firstSheet);
 
-                        const mailOptions = {
-                            from: process.env.EMAIL_USER,
-                            to: email,
-                            subject: "Create Your Account Password",
-                            text: `Hello ${firstName},
+            students.push(...jsonData.map(row => {
+                const trimmedRow = {};
+                Object.keys(row).forEach(key => {
+                    trimmedRow[key.trim()] = typeof row[key] === 'string' ? row[key].trim() : row[key];
+                });
+                return trimmedRow;
+            }));
+        } else {
+            fs.unlinkSync(filePath);
+            return res.status(400).json({ 
+                success: false, 
+                message: "Unsupported file format. Please upload a CSV or Excel file." 
+            });
+        }
 
-You have been successfully added to the system. ${roomId ? `You have been assigned to the room: ${room.name}.` : "You are currently unassigned to a room."} Please use the following link to create your password and log in:
+        const results = [];
+        for (const studentData of students) {
+            const { email, phone, studentId, firstName, lastName, roomId } = studentData;
+            const result = { studentId, success: false };
 
-[Create Password Link]
+            const validation = validateStudent(studentData);
+            if (!validation.isValid) {
+                result.message = validation.message;
+                result.student = studentData;
+                results.push(result);
+                continue;
+            }
 
-Thank you.`
-                        };
+            try {
+                let student = await User.findOne({ studentId });
 
-                        try {
-                            await transporter.sendMail(mailOptions);
-                        } catch (emailError) {
-                            console.error("[EMAIL ERROR]", emailError);
-                            results.push({ studentId, success: false, message: "Failed to send email. Student not saved." });
-                            continue;
-                        }
-
-                        // Save the student only if email is sent successfully
+                if (!roomId) {
+                    if (!student) {
+                        student = new User({
+                            firstName,
+                            lastName,
+                            phone,
+                            email,
+                            studentId,
+                            role: "student"
+                        });
                         await student.save();
-
-                        // Populate room name for the response
-                        await student.populate("room", "name");
-
-                        // If the student is not assigned to a room, set room name to "No room yet"
-                        const roomName = student.room ? student.room.name : "No room yet";
-
-                        results.push({ 
-                            studentId, 
-                            success: true, 
-                            message: "Student added and email sent", 
-                            student: {
-                                ...student.toObject(),
-                                room: roomName
-                            }
-                        });
-                    } catch (error) {
-                        results.push({ studentId, success: false, message: error.message });
                     }
+                    result.success = true;
+                    result.message = "Student added/updated without room assignment";
+                    result.student = {
+                        ...student.toObject(),
+                        room: student.room?.name || "No room assigned"
+                    };
+                    results.push(result);
+                    continue;
                 }
 
-                // Delete the uploaded file after processing
-                fs.unlinkSync(filePath);
+                const room = await Room.findById(roomId);
+                if (!room) {
+                    result.message = "Room not found";
+                    result.student = studentData;
+                    results.push(result);
+                    continue;
+                }
 
-                res.json({ success: true, results });
-            });
+                if (!student) {
+                    student = new User({
+                        firstName,
+                        lastName,
+                        phone,
+                        email,
+                        studentId,
+                        role: "student",
+                        room: room._id
+                    });
+                } else {
+                    student.room = room._id;
+                }
+
+                if (!room.students.includes(student._id)) {
+                    room.students.push(student._id);
+                    room.status = room.students.length >= room.capacity ? "full" : "halfOccupied";
+                    await room.save();
+                }
+
+                await student.save();
+                await student.populate("room", "name");
+
+                result.success = true;
+                result.message = "Student added/updated successfully";
+                result.student = {
+                    ...student.toObject(),
+                    room: student.room?.name || "No room assigned"
+                };
+                results.push(result);
+            } catch (error) {
+                result.message = error.message;
+                result.student = studentData;
+                results.push(result);
+            }
+        }
+
+        fs.unlinkSync(filePath);
+        res.json({ 
+            success: true, 
+            processed: results.length,
+            results 
+        });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: "Bulk upload failed", error: error.message });
+        if (req.file?.path) fs.unlinkSync(req.file.path);
+        console.error("[BULK UPLOAD ERROR]", error);
+        res.status(500).json({ 
+            success: false, 
+            message: "Bulk upload failed", 
+            error: error.message 
+        });
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Delete student
 router.delete("/student/:studentId", roleMiddleware("director"), async (req, res) => {
