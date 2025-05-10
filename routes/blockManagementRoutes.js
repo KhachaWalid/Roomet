@@ -8,12 +8,12 @@ const router = express.Router();
 // Simplified logic for block names and uniform room capacity
 router.post("/initialize", roleMiddleware("director"), async (req, res) => {
     try {
-        const { numberofBlocks, floors, roomsPerFloor, roomsCapacity } = req.body;
+        const { numberofBlocks, floors, roomsPerFloor, RoomsCapacity } = req.body;
 
         console.log("Request received with data:", req.body);
 
         // Validate input data
-        if (!numberofBlocks || !floors || !roomsPerFloor || !roomsCapacity) {
+        if (!numberofBlocks || !floors || !roomsPerFloor || !RoomsCapacity) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
@@ -34,8 +34,7 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
             const block = new Block({
                 name: blockName,
                 floors,
-                roomsPerFloor: roomsPerFloorArray,
-                roomsCapacity: roomsCapacity
+                roomsPerFloor: roomsPerFloorArray
             });
             console.log(`Creating block: ${blockName}`);
             await block.save();
@@ -48,9 +47,9 @@ router.post("/initialize", roleMiddleware("director"), async (req, res) => {
                         number: roomNumber,
                         block: block._id,
                         floor,
-                        capacity: roomsCapacity 
+                        capacity: RoomsCapacity 
                     });
-                    console.log(`Creating room: ${roomNumber} with capacity: ${roomsCapacity}`);
+                    console.log(`Creating room: ${roomNumber} with capacity: ${RoomsCapacity}`);
                     roomCreationPromises.push(room.save());
                 }
             }
@@ -111,6 +110,9 @@ router.post("/create-block", roleMiddleware("director"), async (req, res) => {
 });
 
 // Get all blocks with room counts
+
+
+// Add a route to get all blocks with the number of reports and students in each block
 router.get("/", roleMiddleware("director"), async (req, res) => {
     try {
         const blocks = await Block.aggregate([
@@ -123,15 +125,90 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "maintenancerequests",
+                    localField: "_id",
+                    foreignField: "block",
+                    as: "reports"
+                }
+            },
+            {
                 $addFields: {
-                    occupiedRooms: {
-                        $size: {
-                            $filter: {
+                    numberOfReports: { $size: "$reports" },
+                    numberOfStudents: {
+                        $sum: {
+                            $map: {
                                 input: "$rooms",
                                 as: "room",
-                                cond: { $eq: ["$$room.status", "occupied"] }
+                                in: { $size: "$$room.students" }
                             }
                         }
+                    }
+                }
+            },
+            {
+                $project: {
+                    name: 1,
+                    floors: 1,
+                    numberOfReports: 1,
+                    numberOfStudents: 1
+                }
+            }
+        ]);
+
+        res.json(blocks);
+    } catch (error) {
+        res.status(500).json({
+            message: "Error fetching blocks summary",
+            error: error.message
+        });
+    }
+});
+
+// Updated to calculate the total number of students in each block
+router.get("/ ", roleMiddleware("director"), async (req, res) => {
+    try {
+        const blocks = await Block.aggregate([
+            {
+                $lookup: {
+                    from: "rooms",
+                    localField: "_id",
+                    foreignField: "block",
+                    as: "rooms"
+                }
+            },
+            {
+                $lookup: {
+                    from: "maintenancerequests",
+                    localField: "_id",
+                    foreignField: "block",
+                    as: "reports"
+                }
+            },
+            {
+                $addFields: {
+                    numberOfReports: { $size: "$reports" },
+                    totalStudents: {
+                        $sum: {
+                            $map: {
+                                input: "$rooms",
+                                as: "room",
+                                in: { $size: "$$room.students" }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    name: 1,
+                    floors: 1,
+                    numberOfReports: 1,
+                    totalStudents: 1,
+                    rooms: {
+                        number: 1,
+                        floor: 1,
+                        students: 1
                     }
                 }
             }
@@ -139,9 +216,9 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
 
         res.json(blocks);
     } catch (error) {
-        res.status(500).json({ 
-            message: "Error fetching blocks", 
-            error: error.message 
+        res.status(500).json({
+            message: "Error fetching blocks summary",
+            error: error.message
         });
     }
 });

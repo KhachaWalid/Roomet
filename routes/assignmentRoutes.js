@@ -278,17 +278,26 @@ router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (r
     }
 });
 
+router.get("/students", roleMiddleware("director"), async (req, res) => {
+    try {
+        const students = await User.find({ role: "student" }).populate("room", "name");
 
-
-
-
-
-
-
-
-
-
-
+        res.json({
+            success: true,
+            students: students.map(student => ({
+                ...student.toObject(),
+                room: student.room?.name || "No room assigned"
+            }))
+        });
+    } catch (error) {
+        console.error("[GET STUDENTS ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch students",
+            error: error.message
+        });
+    }
+});
 
 // Delete student
 router.delete("/student/:studentId", roleMiddleware("director"), async (req, res) => {
