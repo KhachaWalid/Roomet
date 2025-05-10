@@ -13,7 +13,7 @@ const router = express.Router();
 // Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
 
-router.post("/", roleMiddleware("director"), async (req, res) => {
+router.post("/add-student", roleMiddleware("director"), async (req, res) => {
     try {
         const { roomId, email, phone, studentId, firstName, lastName } = req.body;
 
@@ -55,15 +55,15 @@ router.post("/", roleMiddleware("director"), async (req, res) => {
 
         // 4. Send email to the student
         const transporter = nodemailer.createTransport({
-            service: "gmail", // Use your email service
+            service: "gmail", 
             auth: {
-                user: process.env.EMAIL_USER, // Replace with your email
-                pass: process.env.EMAIL_PASS  // Replace with your email password
+                user: process.env.EMAIL_USER, 
+                pass: process.env.EMAIL_PASS 
             }
         });
 
         const mailOptions = {
-            from: process.env.EMAIL_USER, // Replace with your email
+            from: process.env.EMAIL_USER,
             to: email,
             subject: "Create Your Account Password",
             text: `Hello ${firstName},
