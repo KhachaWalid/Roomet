@@ -74,6 +74,33 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
     }
 });
 
+// Route to get a single maintenance request by ID
+router.get("/:id", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const request = await MaintenanceRequest.findById(id)
+            .populate("student", "firstName lastName email")
+            .populate({
+                path: "room",
+                populate: {
+                    path: "block",
+                    select: "-__v" // Exclude the __v field from the block
+                },
+                select: "-__v" // Exclude the __v field from the room
+            });
+
+        if (!request) {
+            return res.status(404).json({ message: "Maintenance request not found" });
+        }
+
+        res.json(request);
+    } catch (error) {
+        console.error("[GET SINGLE REQUEST ERROR]", error);
+        res.status(500).json({ message: "Failed to fetch the maintenance request", error: error.message });
+    }
+});
+
 // Admin: Update Request Status
 router.patch("/:id/respond", roleMiddleware("admin"), async (req, res) => {
     try {
