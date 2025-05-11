@@ -80,14 +80,17 @@ router.get("/:id", roleMiddleware("director"), async (req, res) => {
         const { id } = req.params;
 
         const request = await MaintenanceRequest.findById(id)
-            .populate("student", "firstName lastName email")
             .populate({
-                path: "room",
+                path: "student",
+                select: "-__v -password", // Exclude sensitive fields like password and __v
                 populate: {
-                    path: "block",
-                    select: "-__v" // Exclude the __v field from the block
-                },
-                select: "-__v" // Exclude the __v field from the room
+                    path: "room",
+                    populate: {
+                        path: "block",
+                        select: "-__v" // Exclude the __v field from the block
+                    },
+                    select: "-__v" // Exclude the __v field from the room
+                }
             });
 
         if (!request) {
