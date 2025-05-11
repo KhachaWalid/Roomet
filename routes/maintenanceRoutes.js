@@ -55,11 +55,18 @@ router.post("/", roleMiddleware("student"), async (req, res) => {
 });
 
 // Admin: Get All Requests
-router.get("/", roleMiddleware("admin"), async (req, res) => {
+router.get("/", roleMiddleware("director"), async (req, res) => {
     try {
         const requests = await MaintenanceRequest.find()
             .populate("student", "firstName lastName email")
-            .populate("room", "number block")
+            .populate({
+                path: "room",
+                populate: {
+                    path: "block",
+                    select: "-__v" // Exclude the __v field from the block
+                },
+                select: "-__v" // Exclude the __v field from the room
+            })
             .sort({ createdAt: -1 });
         res.json(requests);
     } catch (error) {
