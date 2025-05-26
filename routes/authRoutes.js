@@ -243,28 +243,71 @@ router.post('/reset-password/:token', async (req, res) => {
 });
 
 
+// Register admin (director only, with activation email)
 router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
     try {
-        const { adminCode, secretNumber } = req.body;
-
-    
-        const existingAdmin = await User.findOne({ adminCode });
-        if (existingAdmin) {
-            return res.status(400).json({ message: "Admin code already in use" });
+        const { email, phone, firstName, lastName } = req.body;
+        if (!email || !phone || !firstName || !lastName) {
+            return res.status(400).json({ message: "All fields are required" });
         }
-
-     
-        const newAdmin = new User({
+        // Check if admin already exists
+        let admin = await User.findOne({ email, role: "admin" });
+        if (admin) {
+            return res.status(400).json({ message: "Admin with this email already exists" });
+        }
+        // Generate activation token
+        const activationToken = crypto.randomBytes(20).toString('hex');
+        const activationExpire = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days
+        admin = new User({
+            firstName,
+            lastName,
+            email,
+            phone,
             role: "admin",
-            adminCode,
-            secretNumber
+            activationToken,
+            activationExpire,
+            isVerified: false
         });
-
-        await newAdmin.save();
-        res.status(201).json({ message: "Admin registered successfully", admin: { adminType, adminCode } });
-
+        await admin.save();
+        // Send activation email
+        const activationUrl = `http://localhost:3000/activate-admin/${activationToken}`;
+        const mailOptions = {
+            to: admin.email,
+            subject: 'Activate Your Admin Account',
+            html: `
+                <h1>Welcome to ROOMET Admin!</h1>
+                <p>You have been assigned as an admin. Please activate your account by clicking the link below and set your password:</p>
+                <a href="${activationUrl}">Activate Account</a>
+                <p>This link will expire in 10 days.</p>
+            `
+        };
+        await transporter.sendMail(mailOptions);
+        res.status(201).json({ message: "Admin registered. Activation email sent." });
     } catch (error) {
         res.status(500).json({ message: "Error registering admin", error: error.message });
+    }
+});
+
+// Admin account activation route
+router.post("/activate-admin/:token", async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters." });
+        }
+        const admin = await User.findOne({ activationToken: token, activationExpire: { $gt: Date.now() }, role: "admin" });
+        if (!admin) {
+            return res.status(400).json({ message: "Invalid or expired activation token." });
+        }
+        admin.password = password;
+        admin.isVerified = true;
+        admin.activationToken = undefined;
+        admin.activationExpire = undefined;
+        await admin.save();
+        res.json({ message: "Admin account activated. You can now log in." });
+    } catch (error) {
+        res.status(500).json({ message: "Activation failed", error: error.message });
     }
 });
 
