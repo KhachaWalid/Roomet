@@ -367,39 +367,70 @@ router.get("/student/:studentId", roleMiddleware("director"), async (req, res) =
     }
 });
 
-// Delete student
+// Update student details (PATCH)
+router.patch("/student/:studentId", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        // Allow patching all fields, including studentId
+        const { firstName, lastName, email, phone, roomId, studentId: newStudentId } = req.body;
+        const updateFields = { firstName, lastName, email, phone };
+        if (newStudentId) updateFields.studentId = newStudentId;
+        // Remove undefined fields
+        Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
+        let student = await User.findByIdAndUpdate(studentId, updateFields, { new: true });
+        if (!student) {
+            return res.status(404).json({ success: false, message: "Student not found" });
+        }
+        // Handle room assignment if roomId is provided
+        if (roomId) {
+            const room = await Room.findById(roomId);
+            if (!room) {
+                return res.status(404).json({ success: false, message: "Room not found" });
+            }
+            // Remove student from previous room if assigned
+            if (student.room && student.room.toString() !== roomId) {
+                const prevRoom = await Room.findById(student.room);
+                if (prevRoom) {
+                    prevRoom.students = prevRoom.students.filter(id => id.toString() !== student._id.toString());
+                    prevRoom.status = prevRoom.students.length === 0 ? "free" : (prevRoom.students.length < prevRoom.capacity ? "halfOccupied" : "occupied");
+                    await prevRoom.save();
+                }
+            }
+            // Add student to new room if not already present
+            if (!room.students.includes(student._id)) {
+                room.students.push(student._id);
+                room.status = room.students.length >= room.capacity ? "occupied" : "halfOccupied";
+                await room.save();
+            }
+            student.room = room._id;
+            await student.save();
+        }
+        await student.populate({ path: "room", populate: { path: "block", select: "name" } });
+        res.json({ success: true, message: "Student updated successfully", student: { ...student.toObject(), studentId: student.studentId, room: student.room?.name || null, block: student.room?.block?.name || null } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update student", error: error.message });
+    }
+});
+
+// Delete student (improved)
 router.delete("/student/:studentId", roleMiddleware("director"), async (req, res) => {
     try {
         const { studentId } = req.params;
-
-        // Find and remove student from their room
-        const room = await Room.findOne({ students: studentId });
-        if (room) {
+        // Remove student from all rooms
+        const rooms = await Room.find({ students: studentId });
+        for (const room of rooms) {
             room.students = room.students.filter(id => id.toString() !== studentId);
-            // Update room status based on new occupancy
-            if (room.students.length === 0) {
-                room.status = "free";
-            } else if (room.students.length < room.capacity) {
-                room.status = "halfOccupied";
-            }
+            room.status = room.students.length === 0 ? "free" : (room.students.length < room.capacity ? "halfOccupied" : "occupied");
             await room.save();
         }
-
         // Delete student's user record
-        await User.findByIdAndDelete(studentId);
-
-        res.json({ 
-            success: true,
-            message: "Student deleted successfully"
-        });
-
+        const deleted = await User.findByIdAndDelete(studentId);
+        if (!deleted) {
+            return res.status(404).json({ success: false, message: "Student not found" });
+        }
+        res.json({ success: true, message: "Student deleted successfully" });
     } catch (error) {
-        console.error("[DELETE STUDENT ERROR]", error);
-        res.status(500).json({ 
-            success: false,
-            message: "Failed to delete student",
-            error: error.message 
-        });
+        res.status(500).json({ success: false, message: "Failed to delete student", error: error.message });
     }
 });
 

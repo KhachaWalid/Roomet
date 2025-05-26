@@ -20,8 +20,8 @@ const UserSchema = new mongoose.Schema({
     secretNumber: { type: String, sparse: true }, 
 
     // 🔹 Only for students
-    serialNumber: { type: String, unique: true, sparse: true },
     phone: { type: String, sparse: true },
+    studentId: { type: String, unique: true, sparse: true }, // Add this line for students
 
     room: { type: mongoose.Schema.Types.ObjectId, ref: "Room", sparse: true }
 });
