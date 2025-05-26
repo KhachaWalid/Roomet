@@ -180,65 +180,45 @@ router.post("/director-login", async (req, res) => {
     }
 });
 
+// Universal forgot password (for director, admin, student)
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
-
-    
-    const director = await User.findOne({ email, role: 'director' });
-    if (!director) {
-        return res.status(404).json({ message: "No director found with this email." });
+    // Try to find user by email (any role)
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(404).json({ message: "No user found with this email." });
     }
-
-    
     const resetToken = crypto.randomBytes(20).toString('hex');
-    director.resetPasswordToken = crypto
-        .createHash('sha256')
-        .update(resetToken)
-        .digest('hex');
-    director.resetPasswordExpire = Date.now() + 3600000; // 1 hour
-    await director.save();
-
-    
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+    await user.save();
     const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
-    
     const mailOptions = {
-        to: director.email,
+        to: user.email,
         subject: 'Password Reset Request',
         text: `Click this link to reset your password: ${resetUrl}`
     };
-
     await transporter.sendMail(mailOptions);
-
     res.status(200).json({ message: "Reset email sent!" });
 });
 
+// Universal reset password (for director, admin, student)
 router.post('/reset-password/:token', async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
-
-   
-    const hashedToken = crypto
-        .createHash('sha256')
-        .update(token)
-        .digest('hex');
-
-    
-    const director = await User.findOne({
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // Find user by reset token and expiry (any role)
+    const user = await User.findOne({
         resetPasswordToken: hashedToken,
-        resetPasswordExpire: { $gt: Date.now() }, 
-        role: 'director'
+        resetPasswordExpire: { $gt: Date.now() }
     });
-
-    if (!director) {
+    if (!user) {
         return res.status(400).json({ message: "Invalid or expired token." });
     }
-
-    
-    director.password = password;
-    director.resetPasswordToken = undefined;
-    director.resetPasswordExpire = undefined;
-    await director.save();
-
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
     res.status(200).json({ message: "Password updated successfully!" });
 });
 
