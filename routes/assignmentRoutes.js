@@ -8,11 +8,21 @@ const csvParser = require("csv-parser"); // Add csv-parser for processing CSV fi
 const fs = require("fs");
 const xlsx = require("xlsx"); // Add xlsx for Excel file processing
 const MaintenanceRequest = require("../models/MaintenanceRequest");
+const crypto = require("crypto"); // For token generation
 
 const router = express.Router();
 
 // Configure multer for file uploads
 const upload = multer({ dest: "uploads/" });
+
+// Configure nodemailer transporter (reuse from authRoutes if possible)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 router.post("/add-student", roleMiddleware("director"), async (req, res) => {
     try {
@@ -56,6 +66,28 @@ router.post("/add-student", roleMiddleware("director"), async (req, res) => {
 
         // Save the student
         await student.save();
+
+        // Generate activation token and send email if student is new or not activated
+        if (!student.activationToken || student.isVerified === false) {
+            const activationToken = crypto.randomBytes(20).toString('hex');
+            student.activationToken = activationToken;
+            student.activationExpire = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days
+            student.isVerified = false;
+            await student.save();
+
+            const activationUrl = `http://localhost:3000/activate/${activationToken}`;
+            const mailOptions = {
+                to: student.email,
+                subject: 'Activate Your Roomet Student Account',
+                html: `
+                    <h1>Welcome to ROOMET!</h1>
+                    <p>You have been assigned a room. Please activate your account by clicking the link below and set your password:</p>
+                    <a href="${activationUrl}">Activate Account</a>
+                    <p>This link will expire in 10 days.</p>
+                `
+            };
+            await transporter.sendMail(mailOptions);
+        }
 
         // Populate room and block details for the response
         await student.populate({
@@ -265,6 +297,7 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
             const reportCount = await MaintenanceRequest.countDocuments({ student: student._id });
             return {
                 ...student.toObject(),
+                studentId: student.studentId, // Ensure studentId is included
                 room: student.room?.name || null,
                 block: student.room?.block?.name || null,
                 reports: reportCount
@@ -315,6 +348,7 @@ router.get("/student/:studentId", roleMiddleware("director"), async (req, res) =
             success: true,
             student: {
                 ...student.toObject(),
+                studentId: student.studentId, // Ensure studentId is included
                 room: student.room || null, // Include all room details
                 block: student.room?.block || null, // Include all block details
                 reports: {
@@ -366,6 +400,29 @@ router.delete("/student/:studentId", roleMiddleware("director"), async (req, res
             message: "Failed to delete student",
             error: error.message 
         });
+    }
+});
+
+// Student account activation route
+router.post("/activate/:token", async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
+        }
+        const student = await User.findOne({ activationToken: token, activationExpire: { $gt: Date.now() }, role: "student" });
+        if (!student) {
+            return res.status(400).json({ success: false, message: "Invalid or expired activation token." });
+        }
+        student.password = password;
+        student.isVerified = true;
+        student.activationToken = undefined;
+        student.activationExpire = undefined;
+        await student.save();
+        res.json({ success: true, message: "Account activated. You can now log in." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Activation failed", error: error.message });
     }
 });
 

@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema({
     isVerified: { type: Boolean, default: false }, // New field for email verification
     verificationToken: String, // New field for verification token
     verificationExpire: Date, // New field for verification token expiry
+    activationToken: String, // For student account activation
+    activationExpire: Date, // Expiry for activation token
     
     // 🔹 Only for admins
     adminCode: { type: String, unique: true, sparse: true },

@@ -315,7 +315,7 @@ router.post("/login", async (req, res) => {
 
         // Check if the student is verified (optional, if applicable)
         if (!student.isVerified) {
-            return res.status(400).json({ message: "Please verify your email before logging in" });
+            return res.status(400).json({ message: "Please activate your account from your email before logging in" });
         }
 
         // Set session data
