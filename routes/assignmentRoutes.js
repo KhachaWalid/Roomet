@@ -291,11 +291,11 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
         const students = await User.find({ role: "student" })
             .populate({
                 path: "room",
+                // Populate all fields of room, including block name
                 populate: {
                     path: "block",
                     select: "name"
-                },
-                select: "name block"
+                }
             });
 
         const studentsWithReports = await Promise.all(students.map(async (student) => {
