@@ -105,12 +105,12 @@ router.get("/:id", roleMiddleware("director"), async (req, res) => {
 });
 
 // Admin: Update Request Status
-router.patch("/:id/respond", roleMiddleware("admin"), async (req, res) => {
+router.patch("/:id/status", roleMiddleware("admin"), async (req, res) => {
     try {
-        const { status, response } = req.body;
+        const { status } = req.body;
         const request = await MaintenanceRequest.findByIdAndUpdate(
             req.params.id,
-            { status, adminResponse: response },
+            { status },
             { new: true }
         ).populate("student", "email");
 
@@ -118,16 +118,16 @@ router.patch("/:id/respond", roleMiddleware("admin"), async (req, res) => {
             return res.status(404).json({ message: "Request not found" });
         }
 
-        // Notify student
+        // Optionally, notify student about status change
         await new Notification({
             recipient: request.student._id,
-            message: `Your request (${request.issues.join(", ")}) was ${status}. Response: ${response}`,
+            message: `Your request (${request.issues.join(", ")}) status was updated to: ${status}`,
             relatedRequest: request._id
         }).save();
 
         res.json(request);
     } catch (error) {
-        res.status(500).json({ message: "Failed to update request", error: error.message });
+        res.status(500).json({ message: "Failed to update request status", error: error.message });
     }
 });
 

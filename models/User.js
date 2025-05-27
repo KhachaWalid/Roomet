@@ -2,27 +2,27 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
 const UserSchema = new mongoose.Schema({
+    // General user info
     firstName: { type: String, sparse: true },
     lastName: { type: String, sparse: true },
-    email: { type: String, unique: true, sparse: true }, // 🔹 Only for directors
-    password: { type: String, sparse: true }, // 🔹 Only for directors
+    email: { type: String, unique: true, sparse: true }, // Used for all roles
+    password: { type: String, sparse: true }, // Used for all roles
     role: { type: String, enum: ["student", "admin", "director"], required: true },
+
+    // Password reset and verification
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-    isVerified: { type: Boolean, default: false }, // New field for email verification
-    verificationToken: String, // New field for verification token
-    verificationExpire: Date, // New field for verification token expiry
-    activationToken: String, // For student account activation
-    activationExpire: Date, // Expiry for activation token
-    
-    // 🔹 Only for admins
-    adminCode: { type: String, unique: true, sparse: true },
-    secretNumber: { type: String, sparse: true }, 
+    isVerified: { type: Boolean, default: false }, // Email/account verification status
+    verificationToken: String, // Email verification token (director)
+    verificationExpire: Date, // Email verification expiry (director)
+    activationToken: String, // Account activation token (admin/student)
+    activationExpire: Date, // Account activation expiry (admin/student)
 
-    // 🔹 Only for students
+    // Student-specific fields
     phone: { type: String, sparse: true },
-    studentId: { type: String, unique: true, sparse: true }, // Add this line for students
+    studentId: { type: String, unique: true, sparse: true },
 
+    // Room assignment
     room: { type: mongoose.Schema.Types.ObjectId, ref: "Room", sparse: true }
 });
 
