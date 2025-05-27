@@ -55,7 +55,7 @@ router.post("/", roleMiddleware("student"), async (req, res) => {
 });
 
 // Admin: Get All Requests
-router.get("/", roleMiddleware("director"), async (req, res) => {
+router.get("/", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const requests = await MaintenanceRequest.find()
             .populate("student", "firstName lastName email")
@@ -75,7 +75,7 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
 });
 
 // Route to get a single maintenance request by ID
-router.get("/:id", roleMiddleware("director"), async (req, res) => {
+router.get("/:id", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -105,7 +105,7 @@ router.get("/:id", roleMiddleware("director"), async (req, res) => {
 });
 
 // Admin: Update Request Status
-router.patch("/:id/status", roleMiddleware("admin"), async (req, res) => {
+router.patch("/:id/status", roleMiddleware(["director", "admin"]), async (req, res) => {
     try {
         const { status } = req.body;
         const request = await MaintenanceRequest.findByIdAndUpdate(
