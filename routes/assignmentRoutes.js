@@ -439,4 +439,14 @@ router.delete("/student/:studentId", roleMiddleware("director"), async (req, res
     }
 });
 
+// Get all users (admin, director, student)
+router.get("/users", roleMiddleware("director"), async (req, res) => {
+    try {
+        const users = await User.find({});
+        res.json({ success: true, users });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch users", error: error.message });
+    }
+});
+
 module.exports = router;
