@@ -1,6 +1,5 @@
 const express = require("express");
 const User = require("../models/User");
-const BaccalaureateSerial = require("../models/BaccalaureateSerial");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
@@ -122,64 +121,6 @@ router.get("/verify-email/:token", async (req, res) => {
     }
 });
 
-router.post("/director-login", async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        console.log("Login attempt for email:", email);
-
-        const director = await User.findOne({ email, role: "director" });
-        if (!director) {
-            console.log("No director found with email:", email);
-            return res.status(400).json({ 
-                message: "Invalid email or password",
-                success: false
-            });
-        }
-
-        console.log("Director found, checking password and verification status");
-        const isMatch = await bcrypt.compare(password, director.password);
-        if (!isMatch) {
-            console.log("Password mismatch");
-            return res.status(400).json({ 
-                message: "Invalid email or password",
-                success: false
-            });
-        }
-
-        // Check if email is verified
-        if (!director.isVerified) {
-            console.log("Director not verified:", director.email);
-            return res.status(400).json({ 
-                message: "Please verify your email before logging in",
-                success: false
-            });
-        }
-
-        console.log("Login successful for:", director.email);
-        req.session.user = {
-            id: director._id,
-            firstName: director.firstName,
-            lastName: director.lastName,
-            email: director.email,
-            role: "director"
-        };
-
-        res.status(200).json({ 
-            message: "Director login successful", 
-            director: req.session.user,
-            success: true
-        });
-
-    } catch (error) {
-        console.error("Login error:", error);
-        res.status(500).json({ 
-            message: "Error logging in", 
-            error: error.message,
-            success: false
-        });
-    }
-});
-
 // Universal forgot password (for director, admin, student)
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
@@ -247,6 +188,7 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
             activationToken,
             activationExpire,
             isVerified: false
+            // No password at this stage
         });
         await admin.save();
         // Send activation email
@@ -292,71 +234,56 @@ router.post("/activate/:token", async (req, res) => {
     }
 });
 
-
-router.post("/admin-login", async (req, res) => {
-    try {
-        const { adminCode, secretNumber } = req.body;
-
-        
-        const admin = await User.findOne({ adminCode, role: "admin" });
-
-        if (!admin || admin.secretNumber !== secretNumber) {
-            return res.status(400).json({ message: "Invalid admin code or secret number" });
-        }
-
-        
-        req.session.user = {
-            id: admin._id,
-            adminCode: admin.adminCode,
-            role: "admin"
-        };
-
-        res.status(200).json({ message: "Admin login successful", admin: req.session.user });
-
-    } catch (error) {
-        res.status(500).json({ message: "Error logging in", error: error.message });
-    }
-});
-
-
-
-
+// Universal login for student, admin, and director
 router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
+        let user;
+        let role;
 
-        // Find the student by email
-        const student = await User.findOne({ email, role: "student" });
-        if (!student) {
-            return res.status(400).json({ message: "Invalid email or password" });
+        // Find user by email (admin, director, or student)
+        user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "Invalid email or password", success: false });
         }
+        role = user.role;
 
-        // Check if the password matches
-        const isMatch = await bcrypt.compare(password, student.password);
+        // Password check for all roles
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: "Invalid email or password" });
+            return res.status(400).json({ message: "Invalid email or password", success: false });
         }
 
-        // Check if the student is verified (optional, if applicable)
-        if (!student.isVerified) {
-            return res.status(400).json({ message: "Please activate your account from your email before logging in" });
+        // Verification/activation checks
+        if (role === "director" && !user.isVerified) {
+            return res.status(400).json({ message: "Please verify your email before logging in", success: false });
+        }
+        if (role === "student" && !user.isVerified) {
+            return res.status(400).json({ message: "Please activate your account from your email before logging in", success: false });
+        }
+        if (role === "admin" && user.activationToken) {
+            return res.status(400).json({ message: "Please activate your admin account from your email before logging in", success: false });
         }
 
         // Set session data
         req.session.user = {
-            id: student._id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            email: student.email,
-            role: "student"
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            adminCode: user.adminCode
         };
 
-        res.status(200).json({ message: "Login successful", user: req.session.user });
+        res.status(200).json({ 
+            message: `${role.charAt(0).toUpperCase() + role.slice(1)} login successful`,
+            user: req.session.user,
+            success: true
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error logging in", error: error.message });
+        res.status(500).json({ message: "Error logging in", error: error.message, success: false });
     }
 });
-
 
 router.post("/logout", (req, res) => {
     req.session.destroy((err) => {

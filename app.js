@@ -58,6 +58,11 @@ app.use("/api/assignments", assignmentRoutes);
 const MaintenanceRoutes  = require("./routes/maintenanceRoutes");
 app.use("/api/maintenance", MaintenanceRoutes);
 
+const notificationRoutes = require("./routes/notificationRoutes");
+app.use("/api/notifications", notificationRoutes);
+
+const newsRoutes = require("./routes/newsRoutes");
+app.use("/api/news", newsRoutes);
 
 
 const PORT = process.env.PORT || 5000;
