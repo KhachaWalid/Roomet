@@ -39,7 +39,10 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
     try {
         const rooms = await Room.find()
             .populate("block", "name")   // Ensure block name is populated
-            .populate("students", "name email")  // Populate student details
+            .populate({
+                path: "students",
+                select: "firstName lastName email studentId"
+            })  // Populate student details with all relevant fields
             .exec();
 
         const formatted = rooms.map(room => ({
@@ -52,6 +55,7 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
             floor: room.floor,
             capacity: room.capacity,
             currentOccupancy: room.students.length,
+            students: room.students || [], // Include students array in response
             status: room.status
         }));
 
