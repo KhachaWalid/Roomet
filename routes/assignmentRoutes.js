@@ -303,8 +303,8 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
             return {
                 ...student.toObject(),
                 studentId: student.studentId, // Ensure studentId is included
-                room: student.room?.name || null,
-                block: student.room?.block?.name || null,
+                room: student.room || null, // Return full room object or null
+                block: student.room?.block || null, // Return full block object or null
                 reports: reportCount
             };
         }));
