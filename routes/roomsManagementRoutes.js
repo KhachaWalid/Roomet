@@ -35,7 +35,7 @@ router.post("/create-room", roleMiddleware("director"), async (req, res) => {
     }
 });
 
-router.get("/", roleMiddleware("director"), async (req, res) => {
+router.get("/", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const rooms = await Room.find()
             .populate("block", "name")   // Ensure block name is populated
@@ -66,24 +66,24 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
 });
 
 // Get one room by ID
-router.get("/:id", roleMiddleware("director"), async (req, res) => {
+router.get("/:id", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { id } = req.params;
         const room = await Room.findById(id)
-            .populate({
-                path: "block"
-            })
-            .populate({
-                path: "students"
-            })
-            .populate({
-                path: "reports"
-            })
+            .populate({ path: "block" })
+            .populate({ path: "students" })
             .exec();
         if (!room) {
             return res.status(404).json({ message: "Room not found" });
         }
-        res.json(room);
+        // Fetch all maintenance requests for this room
+        const reports = await require("../models/MaintenanceRequest").find({ room: id })
+            .populate({ path: "student", select: "firstName lastName email studentId" })
+            .sort({ createdAt: -1 });
+        res.json({
+            ...room.toObject(),
+            reports // Array of detailed maintenance requests
+        });
     } catch (error) {
         res.status(500).json({ message: "Error fetching room", error: error.message });
     }
