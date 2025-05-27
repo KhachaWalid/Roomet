@@ -250,7 +250,7 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
         });
         await admin.save();
         // Send activation email
-        const activationUrl = `http://localhost:3000/activate-admin/${activationToken}`;
+        const activationUrl = `http://localhost:3000/activate/${activationToken}`;
         const mailOptions = {
             to: admin.email,
             subject: 'Activate Your Admin Account',
@@ -268,26 +268,27 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
     }
 });
 
-// Admin account activation route
-router.post("/activate-admin/:token", async (req, res) => {
+// Unified account activation route for admin and student
+router.post("/activate/:token", async (req, res) => {
     try {
         const { token } = req.params;
         const { password } = req.body;
         if (!password || password.length < 6) {
             return res.status(400).json({ message: "Password must be at least 6 characters." });
         }
-        const admin = await User.findOne({ activationToken: token, activationExpire: { $gt: Date.now() }, role: "admin" });
-        if (!admin) {
+        // Find user (admin or student) by activationToken and activationExpire
+        const user = await User.findOne({ activationToken: token, activationExpire: { $gt: Date.now() }, role: { $in: ["admin", "student"] } });
+        if (!user) {
             return res.status(400).json({ message: "Invalid or expired activation token." });
         }
-        admin.password = password;
-        admin.isVerified = true;
-        admin.activationToken = undefined;
-        admin.activationExpire = undefined;
-        await admin.save();
-        res.json({ message: "Admin account activated. You can now log in." });
+        user.password = password;
+        user.isVerified = true;
+        user.activationToken = undefined;
+        user.activationExpire = undefined;
+        await user.save();
+        res.json({ success: true, message: `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} account activated. You can now log in.` });
     } catch (error) {
-        res.status(500).json({ message: "Activation failed", error: error.message });
+        res.status(500).json({ success: false, message: "Activation failed", error: error.message });
     }
 });
 

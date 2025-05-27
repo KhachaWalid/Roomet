@@ -53,6 +53,11 @@ router.post("/add-student", roleMiddleware("director"), async (req, res) => {
                 return res.status(404).json({ success: false, message: "Room not found" });
             }
 
+            // Enforce room capacity
+            if (room.students.length >= room.capacity) {
+                return res.status(400).json({ success: false, message: "Room is already full" });
+            }
+
             // Add student to the room if not already present
             if (!room.students.includes(student._id)) {
                 room.students.push(student._id);
@@ -433,29 +438,5 @@ router.delete("/student/:studentId", roleMiddleware("director"), async (req, res
         res.status(500).json({ success: false, message: "Failed to delete student", error: error.message });
     }
 });
-
-// Student account activation route
-router.post("/activate/:token", async (req, res) => {
-    try {
-        const { token } = req.params;
-        const { password } = req.body;
-        if (!password || password.length < 6) {
-            return res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
-        }
-        const student = await User.findOne({ activationToken: token, activationExpire: { $gt: Date.now() }, role: "student" });
-        if (!student) {
-            return res.status(400).json({ success: false, message: "Invalid or expired activation token." });
-        }
-        student.password = password;
-        student.isVerified = true;
-        student.activationToken = undefined;
-        student.activationExpire = undefined;
-        await student.save();
-        res.json({ success: true, message: "Account activated. You can now log in." });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Activation failed", error: error.message });
-    }
-});
-
 
 module.exports = router;

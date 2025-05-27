@@ -61,4 +61,28 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
     }
 });
 
+// Get one room by ID
+router.get("/:id", roleMiddleware("director"), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const room = await Room.findById(id)
+            .populate({
+                path: "block"
+            })
+            .populate({
+                path: "students"
+            })
+            .populate({
+                path: "reports"
+            })
+            .exec();
+        if (!room) {
+            return res.status(404).json({ message: "Room not found" });
+        }
+        res.json(room);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching room", error: error.message });
+    }
+});
+
 module.exports = router;
