@@ -192,7 +192,7 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
     await user.save();
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetUrl = `http://localhost:3000/resetPassword/${resetToken}`;
     const mailOptions = {
         to: user.email,
         subject: 'Password Reset Request',
@@ -250,7 +250,7 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
         });
         await admin.save();
         // Send activation email
-        const activationUrl = `http://localhost:3000/activate/${activationToken}`;
+        const activationUrl = `http://localhost:3000/activation/${activationToken}`;
         const mailOptions = {
             to: admin.email,
             subject: 'Activate Your Admin Account',
@@ -397,7 +397,7 @@ router.post("/resend-verification", async (req, res) => {
         await director.save();
 
         // Send verification email
-        const verificationUrl = `http://localhost:3000/api/auth/verify-email/${verificationToken}`;
+        const verificationUrl = `http://localhost:3000/verification/${verificationToken}`;
         const mailOptions = {
             to: director.email,
             subject: 'Verify Your Email - E-Room Director Registration',
