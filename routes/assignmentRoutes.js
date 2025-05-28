@@ -80,7 +80,7 @@ router.post("/add-student", roleMiddleware(["director", "admin"]), async (req, r
             student.isVerified = false;
             await student.save();
 
-            const activationUrl = `http://localhost:3000/activate/${activationToken}`;
+            const activationUrl = `http://localhost:3000/activation/${activationToken}`;
             const mailOptions = {
                 to: student.email,
                 subject: 'Activate Your Roomet Student Account',
