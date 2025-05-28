@@ -291,7 +291,7 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
         const students = await User.find({ role: "student" })
             .populate({
                 path: "room",
-                // Populate all fields of room, including block name
+                
                 populate: {
                     path: "block",
                     select: "name"
@@ -302,9 +302,9 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
             const reportCount = await MaintenanceRequest.countDocuments({ student: student._id });
             return {
                 ...student.toObject(),
-                studentId: student.studentId, // Ensure studentId is included
-                room: student.room || null, // Return full room object or null
-                block: student.room?.block || null, // Return full block object or null
+                studentId: student.studentId, 
+                room: student.room || null, 
+                block: student.room?.block || null, 
                 reports: reportCount
             };
         }));
@@ -334,9 +334,9 @@ router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (
                 path: "room",
                 populate: {
                     path: "block",
-                    select: "-__v" // Exclude the __v field from the block
+                    select: "-__v" 
                 },
-                select: "-__v" // Exclude the __v field from the room
+                select: "-__v" 
             });
 
         if (!student) {
@@ -353,9 +353,9 @@ router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (
             success: true,
             student: {
                 ...student.toObject(),
-                studentId: student.studentId, // Ensure studentId is included
-                room: student.room || null, // Include all room details
-                block: student.room?.block || null, // Include all block details
+                studentId: student.studentId, 
+                room: student.room || null, 
+                block: student.room?.block || null, 
                 reports: {
                     count: reports.length,
                     details: reports
@@ -376,7 +376,7 @@ router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (
 router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { studentId } = req.params;
-        // Accept all updatable fields from the body, including nested objects
+        
         let {
             firstName,
             lastName,
@@ -388,7 +388,7 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
         } = req.body;
         const updateFields = { firstName, lastName, email, phone, ...otherFields };
         if (newStudentId) updateFields.studentId = newStudentId;
-        // Remove undefined fields
+       
         Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
         let student = await User.findByIdAndUpdate(studentId, updateFields, { new: true });
         if (!student) {
@@ -427,8 +427,8 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
             message: "Student updated successfully",
             student: {
                 ...student.toObject(),
-                studentId: student.studentId, // baccalaureate id
-                _id: student._id, // MongoDB ObjectId
+                studentId: student.studentId, 
+                _id: student._id, 
                 room: student.room || null,
                 block: student.room?.block || null
             }
@@ -438,7 +438,7 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
     }
 });
 
-// Delete student (improved)
+// Delete student
 router.delete("/student/:studentId", roleMiddleware("director"), async (req, res) => {
     try {
         const { studentId } = req.params;
@@ -467,6 +467,16 @@ router.get("/users", roleMiddleware(["admin", "director"]), async (req, res) => 
         res.json({ success: true, users });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to fetch users", error: error.message });
+    }
+});
+
+// Get all admins
+router.get("/admins", roleMiddleware(["admin", "director"]), async (req, res) => {
+    try {
+        const admins = await User.find({ role: "admin" });
+        res.json({ success: true, admins });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch admins", error: error.message });
     }
 });
 
