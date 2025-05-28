@@ -5,7 +5,7 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-// Simplified logic for block names and uniform room capacity
+
 router.post("/initialize", roleMiddleware("director"), async (req, res) => {
     try {
         const { numberofBlocks, floors, roomsPerFloor, roomsCapacity } = req.body;
@@ -110,11 +110,8 @@ router.post("/create-block", roleMiddleware("director"), async (req, res) => {
     }
 });
 
-// Get all blocks with room counts
-
-
-// Add a route to get all blocks with the number of reports and students in each block
-router.get("/", roleMiddleware("director"), async (req, res) => {
+//route to get all blocks 
+router.get("/", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const blocks = await Block.aggregate([
             {
@@ -185,12 +182,12 @@ router.get("/", roleMiddleware("director"), async (req, res) => {
     }
 });
 // Initialize rooms with items based on their capacity
-router.post("/initialize-rooms", roleMiddleware("director"), async (req, res) => {
+router.post("/initialize-rooms", roleMiddleware(["director", "admin"]), async (req, res) => {
     try {
         // Fetch all rooms
         const rooms = await Room.find();
 
-        // Iterate through each room and initialize items
+        
         for (const room of rooms) {
             room.beds = room.capacity;
             room.tables = room.capacity;

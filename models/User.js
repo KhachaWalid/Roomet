@@ -12,11 +12,11 @@ const UserSchema = new mongoose.Schema({
     // Password reset and verification
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-    isVerified: { type: Boolean, default: false }, // Email/account verification status
-    verificationToken: String, // Email verification token (director)
-    verificationExpire: Date, // Email verification expiry (director)
-    activationToken: String, // Account activation token (admin/student)
-    activationExpire: Date, // Account activation expiry (admin/student)
+    isVerified: { type: Boolean, default: false }, 
+    verificationToken: String, 
+    verificationExpire: Date, 
+    activationToken: String, 
+    activationExpire: Date, 
 
     // Student-specific fields
     phone: { type: String, sparse: true },
@@ -26,7 +26,7 @@ const UserSchema = new mongoose.Schema({
     room: { type: mongoose.Schema.Types.ObjectId, ref: "Room", sparse: true }
 });
 
-// 🔒 Hash director's password before saving
+//  Hash director's password before saving
 UserSchema.pre("save", async function (next) {
     if (!this.isModified("password") || !this.password) return next();
     try {

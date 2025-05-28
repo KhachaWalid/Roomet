@@ -7,13 +7,13 @@ const Room = require("../models/Room");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
-// Submit Maintenance Request (Student)
+// Submit Maintenance Request 
 router.post("/", roleMiddleware("student"), async (req, res) => {
     try {
         const { issues, urgency, additionalDescription } = req.body;
         const studentId = req.session.user.id;
 
-        // Validation
+      
         if (!issues || !Array.isArray(issues) || issues.length === 0) {
             return res.status(400).json({ message: "At least one issue must be specified" });
         }
@@ -28,8 +28,8 @@ router.post("/", roleMiddleware("student"), async (req, res) => {
         const request = new MaintenanceRequest({
             student: studentId,
             room: room._id,
-            issues: issues.map(issue => issue.trim()), // Trim whitespace
-            urgency: urgency || "Medium", // Default to Medium
+            issues: issues.map(issue => issue.trim()), 
+            urgency: urgency || "Medium", 
             additionalDescription,
             status: "Pending"
         });
@@ -54,7 +54,7 @@ router.post("/", roleMiddleware("student"), async (req, res) => {
     }
 });
 
-// Admin: Get All Requests
+//  Get All Requests
 router.get("/", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const requests = await MaintenanceRequest.find()
@@ -63,9 +63,9 @@ router.get("/", roleMiddleware(["admin", "director"]), async (req, res) => {
                 path: "room",
                 populate: {
                     path: "block",
-                    select: "-__v" // Exclude the __v field from the block
+                    select: "-__v" 
                 },
-                select: "-__v" // Exclude the __v field from the room
+                select: "-__v" 
             })
             .sort({ createdAt: -1 });
         res.json(requests);
@@ -82,14 +82,14 @@ router.get("/:id", roleMiddleware(["admin", "director"]), async (req, res) => {
         const request = await MaintenanceRequest.findById(id)
             .populate({
                 path: "student",
-                select: "-__v -password", // Exclude sensitive fields like password and __v
+                select: "-__v -password", 
                 populate: {
                     path: "room",
                     populate: {
                         path: "block",
-                        select: "-__v" // Exclude the __v field from the block
+                        select: "-__v" 
                     },
-                    select: "-__v" // Exclude the __v field from the room
+                    select: "-__v" 
                 }
             });
 
@@ -104,7 +104,7 @@ router.get("/:id", roleMiddleware(["admin", "director"]), async (req, res) => {
     }
 });
 
-// Admin: Update Request Status
+// Update Request Status
 router.patch("/:id/status", roleMiddleware(["director", "admin"]), async (req, res) => {
     try {
         const { status } = req.body;
@@ -118,7 +118,7 @@ router.patch("/:id/status", roleMiddleware(["director", "admin"]), async (req, r
             return res.status(404).json({ message: "Request not found" });
         }
 
-        // Optionally, notify student about status change
+        
         await new Notification({
             recipient: request.student._id,
             message: `Your request (${request.issues.join(", ")}) status was updated to: ${status}`,

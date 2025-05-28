@@ -10,11 +10,11 @@ const NotificationSchema = new mongoose.Schema({
     relatedRequest: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "MaintenanceRequest",
-        required: false // Kept optional
+        required: false 
     },
     isRead: { type: Boolean, default: false },
     readAt: {
-        type: Date, // Added timestamp for when the notification was read
+        type: Date, 
         default: null
     },
     createdAt: { type: Date, default: Date.now }

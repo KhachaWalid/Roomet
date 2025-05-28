@@ -28,27 +28,27 @@ const MaintenanceRequestSchema = new mongoose.Schema({
     },
     urgency: {
         type: String,
-        enum: ["Low", "Medium", "High"], // Keep enum for urgency
+        enum: ["Low", "Medium", "High"], 
         default: "Medium"
     },
     additionalDescription: String,
     availableTime: {
         day: {
             type: String,
-            required: false // Made optional
+            required: false 
         },
         timeSlot: {
             type: String,
-            required: false // Made optional
+            required: false 
         }
     },
     description: {
         type: String,
-        required: false // Made optional
+        required: false 
     },
     problemType: {
         type: String,
-        required: false // Made optional
+        required: false 
     },
     status: {
         type: String,
@@ -57,7 +57,7 @@ const MaintenanceRequestSchema = new mongoose.Schema({
     },
     adminResponse: String,
     admin: {
-        type: mongoose.Schema.Types.ObjectId, // Added reference to admin who responded
+        type: mongoose.Schema.Types.ObjectId, 
         ref: "User",
         required: false
     },

@@ -116,7 +116,7 @@ router.post("/add-student", roleMiddleware(["director", "admin"]), async (req, r
     }
 });
 
-router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (req, res) => {
+router.post("/bulk", roleMiddleware(["director", "admin"]), upload.single("file"), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -286,7 +286,7 @@ router.post("/bulk", roleMiddleware("director"), upload.single("file"), async (r
     }
 });
 
-router.get("/students", roleMiddleware("director"), async (req, res) => {
+router.get("/students", roleMiddleware(["director", "admin"]), async (req, res) => {
     try {
         const students = await User.find({ role: "student" })
             .populate({

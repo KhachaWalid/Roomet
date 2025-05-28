@@ -124,7 +124,6 @@ router.get("/verify-email/:token", async (req, res) => {
 // Universal forgot password (for director, admin, student)
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
-    // Try to find user by email (any role)
     const user = await User.findOne({ email });
     if (!user) {
         return res.status(404).json({ message: "No user found with this email." });
@@ -188,7 +187,7 @@ router.post("/register-admin", roleMiddleware("director"), async (req, res) => {
             activationToken,
             activationExpire,
             isVerified: false
-            // No password at this stage
+            
         });
         await admin.save();
         // Send activation email
@@ -327,9 +326,9 @@ router.post("/resend-verification", async (req, res) => {
         const verificationUrl = `http://localhost:3000/verification/${verificationToken}`;
         const mailOptions = {
             to: director.email,
-            subject: 'Verify Your Email - E-Room Director Registration',
+            subject: 'Verify Your Email - Roomet Director Registration',
             html: `
-                <h1>Welcome to E-Room!</h1>
+                <h1>Welcome to Roomet!</h1>
                 <p>Please verify your email by clicking the link below:</p>
                 <a href="${verificationUrl}">Verify Email</a>
                 <p>This link will expire in 24 hours.</p>
