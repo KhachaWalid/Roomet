@@ -324,7 +324,7 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
 });
 
 // Get a single student's detailed information
-router.get("/student/:studentId", roleMiddleware("director"), async (req, res) => {
+router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { studentId } = req.params;
 
@@ -373,7 +373,7 @@ router.get("/student/:studentId", roleMiddleware("director"), async (req, res) =
 });
 
 // Update student details (PATCH)
-router.patch("/student/:studentId", roleMiddleware("director"), async (req, res) => {
+router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { studentId } = req.params;
         // Allow patching all fields, including studentId
@@ -410,8 +410,20 @@ router.patch("/student/:studentId", roleMiddleware("director"), async (req, res)
             student.room = room._id;
             await student.save();
         }
-        await student.populate({ path: "room", populate: { path: "block", select: "name" } });
-        res.json({ success: true, message: "Student updated successfully", student: { ...student.toObject(), studentId: student.studentId, room: student.room?.name || null, block: student.room?.block?.name || null } });
+        await student.populate({
+            path: "room",
+            populate: { path: "block", select: "name" }
+        });
+        res.json({
+            success: true,
+            message: "Student updated successfully",
+            student: {
+                ...student.toObject(),
+                studentId: student.studentId,
+                room: student.room || null, // Return full room object or null
+                block: student.room?.block || null // Return full block object or null
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to update student", error: error.message });
     }
@@ -440,7 +452,7 @@ router.delete("/student/:studentId", roleMiddleware("director"), async (req, res
 });
 
 // Get all users (admin, director, student)
-router.get("/users", roleMiddleware("director"), async (req, res) => {
+router.get("/users", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const users = await User.find({});
         res.json({ success: true, users });
