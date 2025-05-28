@@ -376,9 +376,17 @@ router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (
 router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async (req, res) => {
     try {
         const { studentId } = req.params;
-        // Allow patching all fields, including studentId
-        const { firstName, lastName, email, phone, roomId, studentId: newStudentId } = req.body;
-        const updateFields = { firstName, lastName, email, phone };
+        // Accept all updatable fields from the body, including nested objects
+        let {
+            firstName,
+            lastName,
+            email,
+            phone,
+            studentId: newStudentId,
+            room,
+            ...otherFields
+        } = req.body;
+        const updateFields = { firstName, lastName, email, phone, ...otherFields };
         if (newStudentId) updateFields.studentId = newStudentId;
         // Remove undefined fields
         Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
@@ -386,14 +394,14 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
         if (!student) {
             return res.status(404).json({ success: false, message: "Student not found" });
         }
-        // Handle room assignment if roomId is provided
-        if (roomId) {
-            const room = await Room.findById(roomId);
-            if (!room) {
+        // Handle room assignment if room is provided as an object
+        if (room && typeof room === 'object' && room._id) {
+            const newRoom = await Room.findById(room._id);
+            if (!newRoom) {
                 return res.status(404).json({ success: false, message: "Room not found" });
             }
             // Remove student from previous room if assigned
-            if (student.room && student.room.toString() !== roomId) {
+            if (student.room && student.room.toString() !== newRoom._id.toString()) {
                 const prevRoom = await Room.findById(student.room);
                 if (prevRoom) {
                     prevRoom.students = prevRoom.students.filter(id => id.toString() !== student._id.toString());
@@ -402,12 +410,12 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
                 }
             }
             // Add student to new room if not already present
-            if (!room.students.includes(student._id)) {
-                room.students.push(student._id);
-                room.status = room.students.length >= room.capacity ? "occupied" : "halfOccupied";
-                await room.save();
+            if (!newRoom.students.includes(student._id)) {
+                newRoom.students.push(student._id);
+                newRoom.status = newRoom.students.length >= newRoom.capacity ? "occupied" : "halfOccupied";
+                await newRoom.save();
             }
-            student.room = room._id;
+            student.room = newRoom._id;
             await student.save();
         }
         await student.populate({
@@ -419,9 +427,10 @@ router.patch("/student/:studentId", roleMiddleware(["admin", "director"]), async
             message: "Student updated successfully",
             student: {
                 ...student.toObject(),
-                studentId: student.studentId,
-                room: student.room || null, // Return full room object or null
-                block: student.room?.block || null // Return full block object or null
+                studentId: student.studentId, // baccalaureate id
+                _id: student._id, // MongoDB ObjectId
+                room: student.room || null,
+                block: student.room?.block || null
             }
         });
     } catch (error) {
