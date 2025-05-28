@@ -24,7 +24,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-router.post("/add-student", roleMiddleware("director"), async (req, res) => {
+router.post("/add-student", roleMiddleware(["director", "admin"]), async (req, res) => {
     try {
         const { roomId, email, phone, studentId, firstName, lastName } = req.body;
 
