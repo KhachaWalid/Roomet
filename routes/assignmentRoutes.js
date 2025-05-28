@@ -480,4 +480,32 @@ router.get("/admins", roleMiddleware(["admin", "director"]), async (req, res) =>
     }
 });
 
+// Get one user by ID
+router.get("/user/:userId", roleMiddleware(["admin", "director"]), async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        res.json({ success: true, user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch user", error: error.message });
+    }
+});
+
+// Get one admin by ID
+router.get("/admin/:adminId", roleMiddleware(["admin", "director"]), async (req, res) => {
+    try {
+        const { adminId } = req.params;
+        const admin = await User.findOne({ _id: adminId, role: "admin" });
+        if (!admin) {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        res.json({ success: true, admin });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch admin", error: error.message });
+    }
+});
+
 module.exports = router;
