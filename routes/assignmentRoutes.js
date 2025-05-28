@@ -324,7 +324,7 @@ router.get("/students", roleMiddleware("director"), async (req, res) => {
 });
 
 // Get a single student's detailed information
-router.get("/student/:studentId", roleMiddleware(["admin", "director"]), async (req, res) => {
+router.get("/student/:studentId", roleMiddleware(["admin", "director", "student"]), async (req, res) => {
     try {
         const { studentId } = req.params;
 
