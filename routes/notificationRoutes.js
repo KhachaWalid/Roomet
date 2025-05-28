@@ -7,9 +7,9 @@ const router = express.Router();
 // Get all notifications for the logged-in user
 router.get("/", async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+        // if (!req.session.user) {
+        //     return res.status(401).json({ message: "Unauthorized" });
+        // }
         const notifications = await Notification.find({ recipient: req.session.user.id })
             .sort({ createdAt: -1 });
         res.json({ success: true, notifications });
@@ -21,9 +21,9 @@ router.get("/", async (req, res) => {
 // Mark a notification as read
 router.patch("/:id/read", async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+        // if (!req.session.user) {
+        //     return res.status(401).json({ message: "Unauthorized" });
+        // }
         const notification = await Notification.findOneAndUpdate(
             { _id: req.params.id, recipient: req.session.user.id },
             { isRead: true, readAt: new Date() },
@@ -41,9 +41,9 @@ router.patch("/:id/read", async (req, res) => {
 // Delete a notification
 router.delete("/:id", async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+        // if (!req.session.user) {
+        //     return res.status(401).json({ message: "Unauthorized" });
+        // }
         const deleted = await Notification.findOneAndDelete({ _id: req.params.id, recipient: req.session.user.id });
         if (!deleted) {
             return res.status(404).json({ success: false, message: "Notification not found" });
@@ -57,9 +57,9 @@ router.delete("/:id", async (req, res) => {
 // Mark all notifications as read
 router.patch("/read-all", async (req, res) => {
     try {
-        if (!req.session.user) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
+        // if (!req.session.user) {
+        //     return res.status(401).json({ message: "Unauthorized" });
+        // }
         await Notification.updateMany(
             { recipient: req.session.user.id, isRead: false },
             { isRead: true, readAt: new Date() }
